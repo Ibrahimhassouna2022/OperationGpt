@@ -16,7 +16,7 @@ class OperationParser
         }
 
         // تحقق من نوع العملية
-        if (!isset($data['type']) || !in_array($data['type'], ['action', 'report'])) {
+        if (!isset($data['type']) || !in_array($data['type'], ['action', 'report', 'error'])) {
             return [
                 'type' => 'error',
                 'message' => 'Unknown type in AI response',

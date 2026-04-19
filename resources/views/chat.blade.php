@@ -238,7 +238,7 @@
             </button>
         </div>
     </div>
-
+        <!-- طالما أنك تبني بكيج، فمن الطبيعي أن تظهر تحذيرات لعدم وجود بيئة لارافيل المحيطة"-->
     <script src="{{ asset('vendor/operation-gpt/js/chat.js') }}"></script>
 </body>
 </html>
