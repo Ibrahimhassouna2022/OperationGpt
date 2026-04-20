@@ -1,5 +1,5 @@
 {
-    "name": "project-graduation-students-iug/operation-gpt",
+    "name": "operation-gpt/operation-gpt",
     "description": "AI-powered database operations via natural language",
     "type": "library",
     "license": "MIT",
