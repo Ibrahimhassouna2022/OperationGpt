@@ -31,43 +31,18 @@ class OpenAIService
         $allowedTables = config('operation-gpt.allowed_tables');
         $schemaInfo = json_encode($allowedTables);
 
-        $systemPrompt = "You are a professional database operation assistant. 
-        Your task is to convert natural language into structured JSON operations.
+        $systemPrompt = "You are a professional database assistant. 
+        Your task is to convert natural language requests into a single, valid SQL query.
         
-        ALLOWED TABLES AND COLUMNS: {$schemaInfo}
+        ALLOWED TABLES AND SCHEMA: {$schemaInfo}
         
         RULES:
-        1. ONLY return JSON. 
-        2. NEVER explain anything.
-        3. NEVER return raw SQL.
-        4. ONLY use the following structures:
+        1. ONLY return a JSON object.
+        2. The JSON must contain a key named 'sql_query' which holds the SQL statement.
+        3. ALWAYS use the allowed tables and columns provided above.
+        4. NEVER explain anything or provide any text outside the JSON.
+        5. If the request cannot be fulfilled, return: { \"error\": \"Reason why it's not possible\" }";
 
-        For data insertion:
-        {
-          \"type\": \"action\",
-          \"operations\": [
-            { \"action\": \"insert\", \"table\": \"users\", \"data\": { \"name\": \"...\", \"email\": \"...\" } }
-          ]
-        }
-
-        For updates:
-        {
-          \"type\": \"action\",
-          \"operations\": [
-            { \"action\": \"update\", \"table\": \"users\", \"where\": { \"id\": 1 }, \"data\": { \"role\": \"admin\" } }
-          ]
-        }
-
-        For reports/selects:
-        {
-          \"type\": \"report\",
-          \"table\": \"users\",
-          \"columns\": [\"id\", \"name\", \"email\"],
-          \"filters\": { \"role\": \"admin\" }
-        }
-
-        If the request is invalid or outside the allowed schema, return:
-        { \"type\": \"error\", \"message\": \"Reasoing why it's not possible\" }";
 
         try {
             $response = $this->client->post('chat/completions', [

@@ -5,9 +5,8 @@ namespace OperationGpt\Http\Controllers;
 use Illuminate\Routing\Controller;
 use Illuminate\Http\Request;
 use OperationGpt\Services\OpenAIService;
-use OperationGpt\Services\OperationParser;
-use OperationGpt\Services\OperationExecutor;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class ChatController extends Controller
 {
@@ -35,19 +34,36 @@ class ChatController extends Controller
             $openAIService = new OpenAIService();
             $aiResponse = $openAIService->sendMessage($message);
 
-            // 2. Parse AI Response
-            $parser = new OperationParser();
-            $parsed = $parser->parse($aiResponse);
+            // 2. Decode Response
+            $data = json_decode($aiResponse, true);
 
-            if (isset($parsed['type']) && $parsed['type'] === 'error') {
-                return response()->json($parsed, 422);
+            if (isset($data['error'])) {
+                return response()->json(['type' => 'error', 'message' => $data['error']], 422);
             }
 
-            // 3. Execute Operations
-            $executor = new OperationExecutor();
-            $result = $executor->execute($parsed);
+            if (!isset($data['sql_query'])) {
+                return response()->json(['type' => 'error', 'message' => 'Could not generate SQL query.'], 422);
+            }
 
-            return response()->json($result);
+            $sql = $data['sql_query'];
+
+            // 3. Execute SQL
+            // Determine if it's a SELECT or an action
+            if (stripos(trim($sql), 'SELECT') === 0) {
+                $result = DB::select($sql);
+                return response()->json([
+                    'type' => 'report',
+                    'message' => 'Query executed successfully.',
+                    'data' => $result
+                ]);
+            } else {
+                DB::statement($sql);
+                return response()->json([
+                    'type' => 'action',
+                    'message' => 'Operation executed successfully.',
+                    'data' => ['affected_rows' => 'Check database for changes']
+                ]);
+            }
 
         } catch (\Throwable $e) {
             Log::error('OperationGpt Controller Error: ' . $e->getMessage());
