@@ -41,11 +41,11 @@ class ChatController extends Controller
                 return response()->json(['type' => 'error', 'message' => $data['error']], 422);
             }
 
-            if (!isset($data['sql_query'])) {
+            if (!isset($data['SQL query'])) {
                 return response()->json(['type' => 'error', 'message' => 'Could not generate SQL query.'], 422);
             }
 
-            $sql = $data['sql_query'];
+            $sql = $data['SQL query'];
 
             // 3. Execute SQL
             // Determine if it's a SELECT or an action
@@ -67,7 +67,7 @@ class ChatController extends Controller
 
         } catch (\Throwable $e) {
             Log::error('OperationGpt Controller Error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'type' => 'error',
                 'message' => 'حدث خطأ غير متوقع: ' . $e->getMessage()
