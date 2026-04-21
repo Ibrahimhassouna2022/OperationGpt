@@ -59,12 +59,25 @@ Access the professional chat interface at:
 - **Transaction Support**: All database actions are wrapped in transactions. If any part of a multi-step request fails, everything is rolled back automatically.
 
 ## 🧩 Core Architecture
-
+The package has been simplified to leverage the full power of AI, moving from complex manual parsing to direct
+AI-driven logic.
 For developers looking to customize the internal logic:
 
-- **`OpenAIService.php`**: This is where the **"Brain"** lives. It contains the **System Prompt** (instructions) given to the AI, specifying the rules, JSON formats, and strictly passing the allowed schema.
-- **`OperationParser.php`**: The **"Gatekeeper"**. It validates that the AI's response is a valid JSON and belongs to one of the trusted types (`action`, `report`, or `error`).
-- **`OperationExecutor.php`**: The **"Hammer"**. It receives the validated instructions and performs the actual database operations using Laravel's DB Transactions for maximum safety.
+OpenAIService.php: The "Brain & Architect".
+This is where the core logic lives. It manages the interaction with the OpenAI API.
+It contains the System Prompt which defines the AI's identity and its strict operational rules.
+Customization: You can easily modify the AI's behavior by editing the RULES section in this file (e.g., adding specific business logic, restricting certain SQL commands, or changing the output language).
+It's responsible for securely passing the allowed_tables schema to the AI so it knows exactly what it can work with.
+
+ChatController.php: The "Execution Engine".
+Acting as the bridge between the AI and your database.
+Since the AI now generates direct, ready-to-use SQL within a JSON object, this controller takes the output and executes it directly using Laravel's DB facade.
+This approach eliminates the need for separate Parser and Executor files, making the package lightweight and faster.
+
+
+
+💡 Why this architecture?
+Instead of writing long PHP classes to parse and map data, we now use the AI as a Live SQL Programmer. This makes the package extremely flexible; the AI can handle complex queries, joins, and filters dynamically based on your schema without any extra code.
 
 ## License
 MIT
