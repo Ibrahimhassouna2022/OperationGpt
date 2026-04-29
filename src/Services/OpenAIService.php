@@ -38,7 +38,7 @@ class OpenAIService
         
         RULES:
         1. ONLY return a JSON object.
-        2. The JSON must contain a key named 'sql_query' which holds the SQL statement.
+        2. The JSON must contain a key named 'SQL query' which holds the SQL statement.
         3. ALWAYS use the allowed tables and columns provided above.
         4. NEVER explain anything or provide any text outside the JSON.
         5. If the request cannot be fulfilled, return: { \"error\": \"Reason why it's not possible\" }";
