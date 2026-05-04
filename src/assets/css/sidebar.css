@@ -1,0 +1,28 @@
+/* src/assets/css/sidebar.css */
+
+/* Sidebar Texts */
+.sidebar-subtitle,
+.user-role {
+    font-size: 0.75rem;
+}
+
+.sidebar-section-title {
+    font-size: 0.85rem;
+}
+
+.user-name {
+    font-size: 0.9rem;
+}
+
+/* Side menu links */
+.sidebar-link-faded {
+    opacity: 0.7;
+}
+
+/* User icon (avatar) */
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+    font-weight: bold;
+}

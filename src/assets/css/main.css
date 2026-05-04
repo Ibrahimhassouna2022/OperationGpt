@@ -1,0 +1,12 @@
+/* src/assets/css/main.css */
+
+/* General application format */
+.app-container {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* توحيد عرض القائمة الجانبية للشاشات الكبيرة والصغيرة */
+.sidebar-desktop,
+.sidebar-mobile {
+    width: 280px !important;
+}

@@ -1,0 +1,80 @@
+/* src/assets/css/chat.css */
+
+/* Chat area settings */
+.chat-scroll-area {
+    scroll-behavior: smooth;
+}
+
+/* Welcome screen */
+.welcome-container {
+    max-width: 600px;
+}
+
+.quick-prompt-btn {
+    font-size: 0.85rem;
+}
+
+/* Message Container */
+.messages-container {
+    max-width: 800px;
+}
+
+/* Artificial Intelligence (Bot) Icon */
+.bot-avatar {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+/* Basic format for chat bubble */
+.chat-bubble {
+    max-width: 85%;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    border-radius: 16px;
+}
+
+/* Dynamic bubble (tail) curves according to user and language */
+.bubble-user-ar {
+    border-bottom-right-radius: 4px;
+}
+
+.bubble-user-en {
+    border-bottom-left-radius: 4px;
+}
+
+.bubble-bot-ar {
+    border-top-right-radius: 4px;
+}
+
+.bubble-bot-en {
+    border-top-left-radius: 4px;
+}
+
+/* Input area and send button */
+.input-container {
+    max-width: 850px;
+}
+
+.send-btn {
+    width: 40px;
+    height: 40px;
+    transition: all 0.2s ease-in-out;
+}
+
+.disclaimer-text {
+    font-size: 0.7rem;
+}
+
+/* Loading Indicator */
+.typing-container {
+    font-size: 0.85rem;
+}
+
+.dot-delay-1 {
+    animation-delay: 0.2s;
+}
+
+.dot-delay-2 {
+    animation-delay: 0.4s;
+}
