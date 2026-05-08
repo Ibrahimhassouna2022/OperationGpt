@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL for OperationGPT backend API endpoints
-const API_BASE_URL = 'http://127.0.0.1:8000/api/operation-gpt'; 
+const API_BASE_URL ='/api/operation-gpt'; 
 
 /**
  * Sends a user command to the backend AI processing endpoint.
