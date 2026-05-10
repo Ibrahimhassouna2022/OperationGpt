@@ -215,32 +215,7 @@
     </style>
 </head>
 <body>
-
-    <div class="chat-container">
-        <div class="chat-header">
-            <div>
-                <span class="status-dot"></span>
-                <h2>OperationGPT</h2>
-            </div>
-            <div style="font-size: 0.8rem; color: var(--text-muted);">نظام العمليات الذكي</div>
-        </div>
-
-        <div id="chat-box">
-            <div class="message bot">
-                أهلاً بك! أنا مساعدك الذكي للتحكم في قاعدة البيانات باللغة العربية. كيف يمكنني مساعدتك اليوم؟
-            </div>
-        </div>
-
-        <div class="input-area">
-            <input type="text" id="message-input" placeholder="اكتب أمرك هنا (مثلاً: أريد تقرير عن المستخدمين)..." autocomplete="off">
-            <button id="send-btn">
-                <span class="loader" id="loader"></span>
-                <span id="btn-text">إرسال</span>
-            </button>
-        </div>
-    </div>
-        <!-- طالما أنك تبني بكيج، فمن الطبيعي أن تظهر تحذيرات لعدم وجود بيئة لارافيل المحيطة"-->
-    <script src="{{ asset('vendor/operation-gpt/js/chat.js') }}"></script>
+    <div id="root"></div>
     <script type="module" src="{{ asset('frontend/index-BTjBqddF.js') }}"></script>
 </body>
 </html>
