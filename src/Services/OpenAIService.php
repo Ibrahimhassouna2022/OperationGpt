@@ -110,3 +110,4 @@ $systemPrompt = "You are a Laravel SQL Generator.
         return json_encode(['error' => $e->getMessage()]);
     }
 }
+}
