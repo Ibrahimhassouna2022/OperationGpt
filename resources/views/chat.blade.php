@@ -6,6 +6,7 @@
     <title>Operation GPT | Dashboard</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Kufi+Arabic:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('frontend/index-DLGrjFAV.css') }}">
     <style>
         :root {
             --primary: #6366f1;
@@ -240,5 +241,6 @@
     </div>
         <!-- طالما أنك تبني بكيج، فمن الطبيعي أن تظهر تحذيرات لعدم وجود بيئة لارافيل المحيطة"-->
     <script src="{{ asset('vendor/operation-gpt/js/chat.js') }}"></script>
+    <script type="module" src="{{ asset('frontend/index-BTjBqddF.js') }}"></script>
 </body>
 </html>
