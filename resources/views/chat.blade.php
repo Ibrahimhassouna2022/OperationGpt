@@ -6,7 +6,7 @@
     <title>Operation GPT | Dashboard</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Kufi+Arabic:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('frontend/index-DLGrjFAV.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/operation-gpt/frontend/index-DLGrjFAV.css') }}">
     <style>
         :root {
             --primary: #6366f1;
@@ -216,6 +216,6 @@
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="{{ asset('frontend/index-BTjBqddF.js') }}"></script>
+    <script type="module" src="{{ asset('vendor/operation-gpt/frontend/index-BTjBqddF.js') }}"></script>
 </body>
 </html>
