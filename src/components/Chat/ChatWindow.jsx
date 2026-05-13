@@ -11,21 +11,29 @@ import {
 
 import "../../assets/css/chat.css";
 
-const ChatWindow = ({ language, toggleSidebar }) => {
-  // Manages input state, chat history, and loading state to control request lifecycle and prevent duplicate API calls
+// Receives messages and setMessages props from the parent App component
+const ChatWindow = ({
+  language = "en",
+  toggleSidebar,
+  messages,
+  setMessages,
+}) => {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Reference to the last message element to ensure auto-scroll when new messages arrive from backend
+  // Extracts the username injected by the Laravel Blade environment
+  const userName = window.AppUser ? window.AppUser.name : "System Admin";
+
   const messagesEndRef = useRef(null);
   const scrollToBottom = () =>
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
 
-  // Lightweight UI-level localization without affecting backend payload or API communication
   const t = {
-    greeting: language === "ar" ? "مساء الخير،" : "Good Evening,",
+    greeting:
+      language === "ar"
+        ? `مساء الخير، ${userName}`
+        : `Good Evening, ${userName}`,
     subtitle:
       language === "ar"
         ? "أنا هنا لمساعدتك في مراقبة البنية التحتية، وتحليل السجلات، وتحسين أداء النظام. ماذا تريد أن تفعل اليوم؟"
@@ -53,31 +61,23 @@ const ChatWindow = ({ language, toggleSidebar }) => {
   const handleSend = async (text = input) => {
     if (!text.trim() || isLoading) return;
 
-    // Optimistic UI update to immediately reflect user message before backend processing completes
     setMessages((prev) => [...prev, { id: Date.now(), role: "user", text }]);
     setInput("");
     setIsLoading(true);
 
     try {
-      // Sends payload to API service layer which handles communication with backend (expects JSON response)
       const response = await sendCommandToAI(text, "user");
 
-      /* 
-       Normalizes backend response to support multiple response contracts
-       (reply / message) and reduce tight coupling with API structure
-      */
       const botReply =
         response.reply ||
         response.message ||
         (language === "ar" ? "تمت العملية بنجاح" : "Operation successful");
 
-      // Appends backend response to chat history while preserving chronological UI flow
       setMessages((prev) => [
         ...prev,
         { id: Date.now(), role: "bot", text: botReply },
       ]);
     } catch (error) {
-      // Handles network/API errors gracefully without breaking UI, with fallback messaging
       const errorMsg =
         language === "ar"
           ? "عذراً، حدث خطأ في الاتصال بالخادم."
@@ -87,12 +87,10 @@ const ChatWindow = ({ language, toggleSidebar }) => {
         { id: Date.now(), role: "bot", text: error.message || errorMsg },
       ]);
     } finally {
-      // Resets loading state to allow new requests
       setIsLoading(false);
     }
   };
 
-  // Determines chat bubble styling based on message source and language direction (RTL/LTR)
   const getBubbleClass = (role) => {
     if (role === "user")
       return language === "ar" ? "bubble-user-ar" : "bubble-user-en";
@@ -101,6 +99,7 @@ const ChatWindow = ({ language, toggleSidebar }) => {
 
   return (
     <div className="d-flex flex-column h-100 position-relative bg-body">
+      {/* Header section */}
       <div className="d-flex align-items-center p-3 border-bottom d-md-none">
         <Button
           variant="link"
@@ -112,10 +111,8 @@ const ChatWindow = ({ language, toggleSidebar }) => {
         <h5 className="mb-0 fw-bold text-primary">OperationGPT</h5>
       </div>
 
-      {/* Message container: renders chat history or empty state depending on data availability */}
       <div className="flex-grow-1 overflow-auto p-3 p-md-5 d-flex flex-column chat-scroll-area">
         {messages.length === 0 ? (
-          /* Empty state UI: provides predefined prompts to guide user input and trigger backend requests */
           <div className="m-auto text-center welcome-container">
             <h2 className="fw-bold mb-3">{t.greeting}</h2>
             <p className="text-muted mb-5 fs-6">{t.subtitle}</p>
@@ -134,7 +131,6 @@ const ChatWindow = ({ language, toggleSidebar }) => {
             </div>
           </div>
         ) : (
-          /* Chat history rendering based on state-driven message array synced with backend interaction */
           <div className="w-100 mx-auto pb-4 messages-container">
             {messages.map((msg) => (
               <div
@@ -145,14 +141,12 @@ const ChatWindow = ({ language, toggleSidebar }) => {
                   <div
                     className={`mt-auto mb-auto ${language === "ar" ? "ms-2" : "me-2"}`}
                   >
-                    {/* Visual indicator for AI/system responses to distinguish from user messages */}
                     <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm bot-avatar">
                       <FaRobot size={16} />
                     </div>
                   </div>
                 )}
 
-                {/* Binds UI representation with message state to reflect role-based styling */}
                 <div
                   className={`p-3 shadow-sm chat-bubble ${getBubbleClass(msg.role)} ${
                     msg.role === "user"
@@ -174,7 +168,6 @@ const ChatWindow = ({ language, toggleSidebar }) => {
                     <FaRobot size={14} />
                   </div>
                 </div>
-                {/* Loading indicator tied to isLoading state to reflect pending backend response */}
                 <div className="p-2 rounded-4 bg-body border border-secondary border-opacity-10 shadow-sm typing-container">
                   <span
                     className="spinner-grow spinner-grow-sm text-primary mx-1"
@@ -199,7 +192,6 @@ const ChatWindow = ({ language, toggleSidebar }) => {
         )}
       </div>
 
-      {/* Input layer: primary integration point where user request is constructed and sent to backend */}
       <div className="p-3 bg-body mx-auto w-100 input-container">
         <InputGroup
           size="lg"
@@ -227,7 +219,6 @@ const ChatWindow = ({ language, toggleSidebar }) => {
             className="bg-transparent border-0 shadow-none fs-6"
           />
 
-          {/* Prevents invalid or concurrent submissions during request processing */}
           <Button
             variant="primary"
             onClick={() => handleSend()}

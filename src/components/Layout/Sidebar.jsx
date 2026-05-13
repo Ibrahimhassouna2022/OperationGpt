@@ -12,7 +12,18 @@ import {
 
 import "../../assets/css/sidebar.css";
 
-const Sidebar = ({ isDarkMode, toggleTheme, language, toggleLanguage }) => {
+// Receives onNewChat and chatHistory props from the App component
+const Sidebar = ({
+  isDarkMode,
+  toggleTheme,
+  language,
+  toggleLanguage,
+  onNewChat,
+  chatHistory,
+}) => {
+  // Extracts the username from the Laravel Blade environment
+  const userName = window.AppUser ? window.AppUser.name : "System Admin";
+
   const t = {
     title: "OperationGPT",
     subtitle: language === "ar" ? "مساعدك الذكي" : "AI Assistant",
@@ -31,7 +42,6 @@ const Sidebar = ({ isDarkMode, toggleTheme, language, toggleLanguage }) => {
         isDarkMode ? "bg-dark text-white" : "bg-body-tertiary text-body"
       }`}
     >
-      {/* Displays system identity; can be dynamically driven by backend branding/config data */}
       <div className="d-flex align-items-center mb-4 px-2 mt-2">
         <FaRobot className="text-primary fs-3 me-2" />
         <div>
@@ -40,48 +50,44 @@ const Sidebar = ({ isDarkMode, toggleTheme, language, toggleLanguage }) => {
         </div>
       </div>
 
-      {/* Triggers creation of a new chat session; expected to integrate with backend session/context reset endpoint */}
+      {/* Binds the new chat button to the handler function */}
       <Button
         variant="primary"
+        onClick={onNewChat}
         className="w-100 mb-4 d-flex align-items-center justify-content-center rounded-3 shadow-sm py-2"
       >
-        <FaPlus className="me-2" />{" "}
-        <span className="fw-bold">{t.newChat}</span>
+        <FaPlus className="me-2" /> <span className="fw-bold">{t.newChat}</span>
       </Button>
 
-      {/* Section header for chat history; currently static, intended to be populated via API */}
       <div className="mb-2 px-2 text-secondary fw-bold sidebar-section-title">
         {t.recent}
       </div>
 
-      {/* Represents chat sessions list; designed to bind with backend-provided session IDs */}
+      {/* Renders the list of chat sessions (either stored in memory or an empty state message) */}
       <Nav className="flex-column mb-auto overflow-auto">
-        <Nav.Link
-          href="#"
-          className={`d-flex align-items-center rounded mb-1 px-3 py-2 bg-secondary bg-opacity-10 fw-semibold ${
-            isDarkMode ? "text-light" : "text-dark"
-          }`}
-        >
-          <FaRegCommentDots className="me-2 text-muted" />
-          {language === "ar"
-            ? "تحليل سجلات النظام"
-            : "System Logs Analysis"}
-        </Nav.Link>
-        <Nav.Link
-          href="#"
-          className={`d-flex align-items-center rounded mb-1 px-3 py-2 sidebar-link-faded ${
-            isDarkMode ? "text-light" : "text-dark"
-          }`}
-        >
-          <FaRegCommentDots className="me-2 text-muted" />
-          {language === "ar"
-            ? "تحسين استعلامات SQL"
-            : "SQL Queries Optimization"}
-        </Nav.Link>
+        {chatHistory && chatHistory.length > 0 ? (
+          chatHistory.map((chat) => (
+            <Nav.Link
+              key={chat.id}
+              href="#"
+              className={`d-flex align-items-center rounded mb-1 px-3 py-2 sidebar-link-faded ${
+                isDarkMode ? "text-light" : "text-dark"
+              }`}
+            >
+              <FaRegCommentDots className="me-2 text-muted" />
+              <span className="text-truncate" style={{ maxWidth: "180px" }}>
+                {chat.title}
+              </span>
+            </Nav.Link>
+          ))
+        ) : (
+          <div className="text-muted small px-3 py-2 text-center">
+            {language === "ar" ? "لا توجد محادثات سابقة" : "No recent chats"}
+          </div>
+        )}
       </Nav>
 
       <div className="mt-auto">
-        {/* Entry point for system settings; expected to connect to settings page or modal backed by API */}
         <Button
           variant="link"
           className={`w-100 d-flex align-items-center mb-3 text-decoration-none px-3 ${
@@ -93,7 +99,6 @@ const Sidebar = ({ isDarkMode, toggleTheme, language, toggleLanguage }) => {
         </Button>
 
         <div className="pt-3 border-top border-secondary border-opacity-25">
-          {/* UI-level language toggle; does not affect backend payload or API behavior */}
           <Button
             variant="link"
             className={`w-100 d-flex align-items-center mb-1 text-decoration-none px-3 ${
@@ -105,7 +110,6 @@ const Sidebar = ({ isDarkMode, toggleTheme, language, toggleLanguage }) => {
             {t.langToggle}
           </Button>
 
-          {/* Theme toggle (Dark/Light); affects presentation layer only */}
           <Button
             variant="link"
             className={`w-100 d-flex align-items-center mb-3 text-decoration-none px-3 ${
@@ -121,13 +125,18 @@ const Sidebar = ({ isDarkMode, toggleTheme, language, toggleLanguage }) => {
             {isDarkMode ? t.lightMode : t.darkMode}
           </Button>
 
-          {/* Represents current user context; can be dynamically populated via authentication/user profile API */}
+          {/* Displays the dynamic username */}
           <div className="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded-3 mt-2">
             <div className="bg-dark text-white rounded-circle d-flex align-items-center justify-content-center me-2 user-avatar">
-              HQ
+              {userName.substring(0, 2).toUpperCase()}
             </div>
             <div>
-              <strong className="d-block user-name">محمد صيام</strong>
+              <strong
+                className="d-block user-name text-truncate"
+                style={{ maxWidth: "120px" }}
+              >
+                {userName}
+              </strong>
               <small className="text-muted user-role">{t.role}</small>
             </div>
           </div>

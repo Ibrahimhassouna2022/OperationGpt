@@ -14,6 +14,22 @@ function App() {
   const [language, setLanguage] = useState("en");
   const [showSidebar, setShowSidebar] = useState(false);
 
+  // State management for chat sessions (Lifting State Up)
+  const [messages, setMessages] = useState([]);
+  const [chatHistory, setChatHistory] = useState([]);
+
+  // Triggers new chat session by saving current messages to history and clearing the chat window
+  const handleNewChat = () => {
+    if (messages.length > 0) {
+      const chatTitle = messages[0].text.substring(0, 20) + "...";
+      setChatHistory((prev) => [
+        { id: Date.now(), title: chatTitle, data: messages },
+        ...prev,
+      ]);
+      setMessages([]);
+    }
+  };
+
   // Determines layout direction (RTL/LTR) applied across the entire DOM
   const direction = language === "ar" ? "rtl" : "ltr";
 
@@ -49,6 +65,8 @@ function App() {
             toggleTheme={toggleTheme}
             language={language}
             toggleLanguage={toggleLanguage}
+            onNewChat={handleNewChat}
+            chatHistory={chatHistory}
           />
         </div>
 
@@ -67,13 +85,20 @@ function App() {
               toggleLanguage={toggleLanguage}
               isMobile={true}
               closeSidebar={handleSidebarClose}
+              onNewChat={handleNewChat}
+              chatHistory={chatHistory}
             />
           </Offcanvas.Body>
         </Offcanvas>
 
         {/* Main content area: hosts ChatWindow and serves as primary integration point with backend interactions */}
         <div className="flex-grow-1 d-flex flex-column h-100">
-          <ChatWindow language={language} toggleSidebar={handleSidebarShow} />
+          <ChatWindow
+            language={language}
+            toggleSidebar={handleSidebarShow}
+            messages={messages}
+            setMessages={setMessages}
+          />
         </div>
       </Container>
     </div>
