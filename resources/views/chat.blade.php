@@ -6,6 +6,12 @@
     <title>Operation GPT | Dashboard</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Kufi+Arabic:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+       window.AppUser = {
+           name: "{!! auth()->check() ? auth()->user()->name : 'System Admin' !!}"
+        };
+   </script>
+    <link rel="stylesheet" href="{{ asset('../../public/frontend/chatApp.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/operation-gpt/frontend/index-DLGrjFAV.css') }}">
     <style>
         :root {
@@ -217,5 +223,6 @@
 <body>
     <div id="root"></div>
     <script type="module" src="{{ asset('vendor/operation-gpt/frontend/index-BTjBqddF.js') }}"></script>
+    <script type="module" src="{{ asset('../../public/frontend/chat-app.js') }}"></script>
 </body>
 </html>
