@@ -23,121 +23,177 @@ class ChatController extends Controller
     /**
      * Handle the chat request.
      */
-
-
     public function chat(Request $request)
     {
+        if (!Auth::check()) {
+            return response()->json([
+                'type' => 'error', 
+                'reply' => 'يرجى تسجيل الدخول أولاً.',
+                'message' => 'User not authenticated.'
+            ], 401);
+        }
+
         try {
             $request->validate(['message' => 'required|string|max:1000']);
             $message = $request->input('message');
 
-            // 1. طلب الاستعلام من OpenAI
-            $openAIService = new \OperationGpt\Services\OpenAIService();
-            // $aiResponse = $openAIService->sendMessage($message);
-            
-            // $data = json_decode($aiResponse, true);
-            // $sql = $data['sql_query'] ?? null;
-
-            // if (!$sql) {
-            //     return response()->json(['type' => 'error', 'message' => 'لم يتم تكوين استعلام.'], 422);
-            // }
-
-            // 1. طلب الاستعلام من OpenAI
+            $openAIService = new OpenAIService();
             $aiResponse = $openAIService->sendMessage($message);
 
-            // تنظيف الرد من أي علامات Markdown قد يضيفها AI بالخطأ
             $cleanResponse = preg_replace('/```json|```/', '', $aiResponse);
             $data = json_decode(trim($cleanResponse), true);
 
             $sql = $data['sql_query'] ?? null;
 
             if (!$sql) {
-                // سجل الرد الأصلي في الـ Log لنعرف لماذا فشل
-                \Illuminate\Support\Facades\Log::error("Failed AI Response: " . $aiResponse);
-                return response()->json(['type' => 'error', 'message' => 'لم يتم تكوين استعلام. الرد كان: ' . substr($aiResponse, 0, 50)], 422);
+                Log::error("Failed AI Response: " . $aiResponse);
+                return response()->json([
+                    'type' => 'error', 
+                    'reply' => 'لم يتم تكوين استعلام. يرجى إعادة صياغة طلبك بطريقة أوضح.',
+                    'message' => 'لم يتم تكوين استعلام.'
+                ], 422);
             }
 
-            // 2. هنا "بيت القصيد": استدعاء دالة الفحص والتنفيذ في المشروع
-            // مررنا الاستعلام SQL للدالة التي سنكتبها بالأسفل
             return $this->executeQuerySecurely($sql);
 
         } catch (\Exception $e) {
-            // جلب الرد الكامل للخطأ إذا كان متوفراً
-            if (method_exists($e, 'getResponse') && $e->getResponse()) {
-                $fullError = $e->getResponse()->getBody()->getContents();
-                \Illuminate\Support\Facades\Log::error("OpenAI Technical Error: " . $fullError);
-                return $fullError; // سيعرض لك الخطأ الحقيقي في واجهة التشات (مثل Insufficient Balance)
-            }
-            
-            return json_encode(['error' => $e->getMessage()]);
+            Log::error("ChatController Error: " . $e->getMessage());
+            return response()->json([
+                'type' => 'error',
+                'reply' => 'حدث خطأ في النظام. يرجى المحاولة لاحقاً.',
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 
     private function executeQuerySecurely($sql)
-{
-    $user = Auth::user(); 
-    $empNumber = $user->employee_number; 
+    {
+        // authentication of the user
+        $user = Auth::user(); 
+        $userIdentifierColumn = $user->getAuthIdentifierName();
+        $userIdentifier = $user->getAuthIdentifier(); 
 
-    // --- 1. معالجة وتشفير كلمة السر (قبل أي شيء آخر) ---
-    if (stripos($sql, 'password') !== false && stripos($sql, 'UPDATE') !== false) {
-        $pattern = "/password\s*=\s*['\"]([^'\"]+)['\"]/i";
-        if (preg_match($pattern, $sql, $matches)) {
-            $plainPassword = $matches[1];
-            $hashedPassword = Hash::make($plainPassword);
-            // استبدال كلمة السر بنسختها المشفرة
-            $sql = str_replace("'$plainPassword'", "'$hashedPassword'", $sql);
-            $sql = str_replace("\"$plainPassword\"", "'$hashedPassword'", $sql);
-        }
-    }
-
-    // --- 2. إصلاح الاستعلام وحقن الهوية (تصحيح خطأ البتر) ---
-    if ($user->role !== 'admin' && str_contains(strtoupper($sql), 'UPDATE')) {
-        if (stripos($sql, 'WHERE') !== false) {
-            // نعدل الجزء الخاص بالـ WHERE فقط دون حذف إغلاق الاستعلام إذا وجد
-            $sql = preg_replace('/WHERE\b.*/i', "WHERE employee_number = '$empNumber'", $sql);
-        } else {
-            // تنظيف الاستعلام من أي فاصلة منقوطة في النهاية قبل إضافة الـ WHERE
-            $sql = rtrim(trim($sql), ';') . " WHERE employee_number = '$empNumber'";
-        }
-    }
-
-    $sqlUpper = strtoupper($sql);
-
-    // --- 3. فحص الصلاحيات ---
-    if ($user->role !== 'admin') {
-        if (str_contains($sqlUpper, 'DELETE') || str_contains($sqlUpper, 'INSERT') || str_contains($sqlUpper, 'DROP')) {
-            return response()->json(['type' => 'error', 'message' => 'غير مسموح لك بالحذف أو الإضافة.'], 403);
+        // --- 1. Password Hash Processing ---
+        if (stripos($sql, 'password') !== false && (stripos($sql, 'UPDATE') !== false || stripos($sql, 'INSERT') !== false)) {
+            $pattern = "/password\s*=\s*['\"]([^'\"]+)['\"]/i";
+                if (preg_match($pattern, $sql, $matches)) {
+                    $plainPassword = $matches[1];
+                    $hashedPassword = Hash::make($plainPassword);
+                    $sql = str_replace("'$plainPassword'", "'$hashedPassword'", $sql);
+                    $sql = str_replace("\"$plainPassword\"", "'$hashedPassword'", $sql);
+                }
         }
 
-        $forbiddenFields = ['SALARY', 'ROLE', 'POSITION'];
-        foreach ($forbiddenFields as $field) {
-            if (str_contains($sqlUpper, $field)) {
-                return response()->json(['type' => 'error', 'message' => 'لا تملك صلاحية تعديل الحقول الإدارية.'], 403);
+        // --- 2. Identity Injection for Regular Users ---
+        $isAdmin = isset($user->role) && ($user->role === 'admin' || $user->role === 'super_admin');
+        if (!$isAdmin && str_contains(strtoupper($sql), 'UPDATE')) {
+            if (stripos($sql, 'WHERE') !== false) {
+                $sql = preg_replace('/WHERE\b.*/i', "WHERE {$userIdentifierColumn} = '$userIdentifier'", $sql);
+            } else {
+                $sql = rtrim(trim($sql), ';') . " WHERE {$userIdentifierColumn} = '$userIdentifier'";
             }
         }
-    }
 
-    // --- 4. التنفيذ ---
-    try {
-        if (stripos(trim($sql), 'SELECT') === 0) {
-            $result = DB::select($sql);
-            return response()->json(['type' => 'report', 'message' => 'تم جلب البيانات.', 'data' => $result]);
-        } else {
-            // تنفيذ الاستعلام وحفظه في الـ Log للتأكد
-            $affectedRows = DB::affectingStatement($sql);
-            Log::info("Final SQL Executed: " . $sql); // ستجده الآن كاملاً وغير مبتور
+        $sqlUpper = strtoupper(trim($sql));
 
-            if ($affectedRows === 0) {
-                return response()->json(['type' => 'error', 'message' => 'لم يتم تحديث أي سجل.'], 404);
+        // --- 3. Role-Based Permissions Check ---
+        // We rely entirely on the configuration to determine what is allowed.
+        // If 'DROP' is in allowed_operations for a role, the system will permit it.
+        $roleConfigs = config('operation-gpt-prompts.roles', []);
+        $userRole = $user->role ?? 'user';
+        $roleConfig = $roleConfigs[$userRole] ?? ($roleConfigs['user'] ?? []);
+        $roleConstraints = $roleConfig['constraints'] ?? [];
+        $allowedOps = $roleConstraints['allowed_operations'] ?? ['SELECT'];
+
+        $isOperationAllowed = false;
+        foreach ($allowedOps as $op) {
+            if (str_starts_with($sqlUpper, strtoupper($op))) {
+                $isOperationAllowed = true;
+                break;
             }
-
-            return response()->json(['type' => 'action', 'message' => 'تم تحديث بياناتك بنجاح.']);
         }
-    } catch (\Exception $e) {
-        Log::error("SQL Failure: " . $e->getMessage());
-        return response()->json(['type' => 'error', 'message' => 'حدث خطأ: ' . $e->getMessage()], 500);
+
+        if (!$isOperationAllowed) {
+            return response()->json([
+                'type' => 'error', 
+                'reply' => 'عذراً، دورك الحالي كـ (' . ($roleConfig['name'] ?? $userRole) . ') لا يمتلك الصلاحية لتنفيذ استعلامات من نوع (' . explode(' ', $sqlUpper)[0] . ').',
+                'message' => 'Role-based permission denied.'
+            ], 403);
+        }
+
+        // --- 5. Execution ---
+        try {
+            if (stripos(trim($sql), 'SELECT') === 0) {
+                $result = DB::select($sql);
+                $htmlTable = $this->generateHtmlTable($result);
+                
+                return response()->json([
+                    'type' => 'report', 
+                    'reply' => $htmlTable,
+                    'message' => 'تم جلب البيانات.', 
+                    'data' => $result
+                ]);
+            } else {
+                $affectedRows = DB::affectingStatement($sql);
+                if (config('operation-gpt.logging', true)) {
+                    Log::info("Final SQL Executed: " . $sql);
+                }
+
+                if ($affectedRows === 0) {
+                    return response()->json([
+                        'type' => 'error', 
+                        'reply' => 'لم يتم تحديث أي سجل. قد تكون البيانات مطابقة أو لا توجد صلاحية.',
+                        'message' => 'لم يتم تحديث أي سجل.'
+                    ], 404);
+                }
+
+                return response()->json([
+                    'type' => 'action', 
+                    'reply' => 'تم تنفيذ العملية بنجاح.',
+                    'message' => 'تم التحديث بنجاح.'
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error("SQL Failure: " . $e->getMessage() . " | SQL: " . $sql);
+            return response()->json([
+                'type' => 'error', 
+                'reply' => 'حدث خطأ في قاعدة البيانات أثناء محاولة التنفيذ.',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
-}
+
+    private function generateHtmlTable($data)
+    {
+        if (empty($data)) {
+            return '<p style="color: var(--text-muted); margin-top: 10px;">لا توجد بيانات مطابقة.</p>';
+        }
+
+        $html = '<div style="overflow-x: auto; margin-top: 15px;"><table class="report-table" style="width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1);">';
+        
+        // Headers
+        $firstRow = (array) $data[0];
+        $html .= '<thead><tr>';
+        foreach (array_keys($firstRow) as $header) {
+            $html .= '<th style="background: rgba(255, 255, 255, 0.1); padding: 12px; text-align: right; font-size: 0.85rem; color: #94a3b8;">' . htmlspecialchars($header) . '</th>';
+        }
+        $html .= '</tr></thead><tbody>';
+
+        // Rows
+        foreach ($data as $row) {
+            $html .= '<tr>';
+            foreach ((array) $row as $value) {
+                // If value is null, make it an empty string
+                $displayValue = $value === null ? '' : (string) $value;
+                $html .= '<td style="padding: 12px; border-top: 1px solid rgba(255, 255, 255, 0.05); font-size: 0.9rem;">' . htmlspecialchars($displayValue) . '</td>';
+            }
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody></table></div>';
+
+        return $html;
+    }
 }
 
 
