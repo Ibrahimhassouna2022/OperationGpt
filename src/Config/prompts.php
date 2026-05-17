@@ -63,6 +63,18 @@ return [
                 Capability: You can ONLY SELECT data.
                 Constraints: STRICT RULE: You MUST append `user_id = :identifier` or `id = :identifier` to the WHERE clause when querying `students`, `teachers`, or `users` tables to ensure the student only sees their own data.",
         ],
+
+        'user' => [
+            'name' => 'Standard User',
+            'description' => 'مستخدم عادي - صلاحية قراءة فقط (SELECT) للجداول المتاحة.',
+            'constraints' => [
+                'allowed_operations' => ['SELECT'],
+            ],
+            'prompt' => "You are a standard Database Assistant.
+                Role: User.
+                Capability: You can ONLY SELECT data from the allowed tables.
+                Constraints: You cannot modify any data.",
+        ],
     ],
 
     /*

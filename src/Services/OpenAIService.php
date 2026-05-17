@@ -46,9 +46,12 @@ class OpenAIService
       
         // Fetch role-based prompt from configuration
         $roleConfigs = config('operation-gpt-prompts.roles', []);
-        $roleConfig = $roleConfigs[$userRole] ?? $roleConfigs['user']; // Fallback to 'user' role
+        $roleConfig = $roleConfigs[$userRole] ?? ($roleConfigs['user'] ?? [
+            'prompt' => "You are a standard Database Assistant. Role: User. Capability: You can ONLY SELECT data from the allowed tables.",
+            'constraints' => ['allowed_operations' => ['SELECT']]
+        ]);
         
-        $rolePrompt = $roleConfig['prompt'];
+        $rolePrompt = $roleConfig['prompt'] ?? "You are a standard Database Assistant. Role: User. Capability: You can ONLY SELECT data from the allowed tables.";
         $globalRules = implode("\n", config('operation-gpt-prompts.global_rules', []));
 
         // Prepare variables for replacement
