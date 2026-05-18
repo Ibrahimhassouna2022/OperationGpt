@@ -6,11 +6,13 @@
     <title>Operation GPT | Dashboard</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Noto+Kufi+Arabic:wght@400;700&display=swap" rel="stylesheet">
-    <script>
-       window.AppUser = {
-           name: "{!! auth()->check() ? auth()->user()->name : 'System Admin' !!}"
-        };
-   </script>
+ <script>
+    // Injects authenticated user data dynamically from Laravel Auth
+    window.AppUser = {
+        name: "{!! auth()->check() ? auth()->user()->name : 'System Admin' !!}",
+        role: "{!! auth()->check() ? auth()->user()->role : 'System Admin' !!}"
+    };
+ </script>
     <link rel="stylesheet" href="{{ asset('../../public/frontend/chatApp.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/operation-gpt/frontend/index-DLGrjFAV.css') }}">
     <style>
