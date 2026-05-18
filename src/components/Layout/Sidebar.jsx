@@ -12,7 +12,7 @@ import {
 
 import "../../assets/css/sidebar.css";
 
-// Receives onNewChat and chatHistory props from the App component
+// Receives onNewChat, chatHistory, and onSelectChat props from the App component
 const Sidebar = ({
   isDarkMode,
   toggleTheme,
@@ -20,9 +20,13 @@ const Sidebar = ({
   toggleLanguage,
   onNewChat,
   chatHistory,
+  onSelectChat,
 }) => {
-  // Extracts the username from the Laravel Blade environment
-  const userName = window.AppUser ? window.AppUser.name : "System Admin";
+  // Extracts the username and role from the Laravel Blade environment
+  const userName = window.AppUser?.name || "System Admin";
+  const userRole =
+    window.AppUser?.role ||
+    (language === "ar" ? "مشرف النظام" : "System Admin");
 
   const t = {
     title: "OperationGPT",
@@ -33,7 +37,6 @@ const Sidebar = ({
     darkMode: language === "ar" ? "الوضع الليلي" : "Dark Mode",
     lightMode: language === "ar" ? "الوضع النهاري" : "Light Mode",
     langToggle: language === "ar" ? "English (LTR)" : "العربية (RTL)",
-    role: language === "ar" ? "مشرف النظام" : "System Admin",
   };
 
   return (
@@ -63,13 +66,17 @@ const Sidebar = ({
         {t.recent}
       </div>
 
-      {/* Renders the list of chat sessions (either stored in memory or an empty state message) */}
+      {/* Renders the list of chat sessions with click event handlers to view history */}
       <Nav className="flex-column mb-auto overflow-auto">
         {chatHistory && chatHistory.length > 0 ? (
           chatHistory.map((chat) => (
             <Nav.Link
               key={chat.id}
               href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                onSelectChat(chat);
+              }}
               className={`d-flex align-items-center rounded mb-1 px-3 py-2 sidebar-link-faded ${
                 isDarkMode ? "text-light" : "text-dark"
               }`}
@@ -125,7 +132,7 @@ const Sidebar = ({
             {isDarkMode ? t.lightMode : t.darkMode}
           </Button>
 
-          {/* Displays the dynamic username */}
+          {/* Displays the dynamic username and role */}
           <div className="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded-3 mt-2">
             <div className="bg-dark text-white rounded-circle d-flex align-items-center justify-content-center me-2 user-avatar">
               {userName.substring(0, 2).toUpperCase()}
@@ -137,7 +144,7 @@ const Sidebar = ({
               >
                 {userName}
               </strong>
-              <small className="text-muted user-role">{t.role}</small>
+              <small className="text-muted user-role">{userRole}</small>
             </div>
           </div>
         </div>

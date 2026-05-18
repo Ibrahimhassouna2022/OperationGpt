@@ -22,7 +22,7 @@ const ChatWindow = ({
   const [isLoading, setIsLoading] = useState(false);
 
   // Extracts the username injected by the Laravel Blade environment
-  const userName = window.AppUser ? window.AppUser.name : "System Admin";
+  const userName = window.AppUser?.name || "System Admin";
 
   const messagesEndRef = useRef(null);
   const scrollToBottom = () =>
@@ -132,37 +132,63 @@ const ChatWindow = ({
           </div>
         ) : (
           <div className="w-100 mx-auto pb-4 messages-container">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`d-flex mb-4 w-100 ${msg.role === "user" ? "justify-content-end" : "justify-content-start"}`}
-              >
-                {msg.role === "bot" && (
-                  <div
-                    className={`mt-auto mb-auto ${language === "ar" ? "ms-2" : "me-2"}`}
-                  >
-                    <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm bot-avatar">
-                      <FaRobot size={16} />
-                    </div>
-                  </div>
-                )}
+            {messages.map((msg) => {
+              // Determines if the message text contains HTML structure
+              const isHtml =
+                msg.role === "bot" &&
+                typeof msg.text === "string" &&
+                msg.text.trim().startsWith("<");
 
+              return (
                 <div
-                  className={`p-3 shadow-sm chat-bubble ${getBubbleClass(msg.role)} ${
+                  key={msg.id}
+                  className={`d-flex mb-4 w-100 ${
                     msg.role === "user"
-                      ? "bg-primary text-white"
-                      : "bg-body border border-secondary border-opacity-10 text-body"
+                      ? "justify-content-end"
+                      : "justify-content-start"
                   }`}
                 >
-                  {msg.text}
+                  {msg.role === "bot" && (
+                    <div
+                      className={`mt-auto mb-auto ${
+                        language === "ar" ? "ms-2" : "me-2"
+                      }`}
+                    >
+                      <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm bot-avatar">
+                        <FaRobot size={16} />
+                      </div>
+                    </div>
+                  )}
+
+                  <div
+                    className={`p-3 shadow-sm chat-bubble ${getBubbleClass(
+                      msg.role,
+                    )} ${
+                      msg.role === "user"
+                        ? "bg-primary text-white"
+                        : "bg-body border border-secondary border-opacity-10 text-body"
+                    }`}
+                  >
+                    {/* Renders raw HTML safely if the condition is met, otherwise renders text */}
+                    {isHtml ? (
+                      <div
+                        dangerouslySetInnerHTML={{ __html: msg.text }}
+                        className="html-table-container table-responsive"
+                      />
+                    ) : (
+                      <span>{msg.text}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {isLoading && (
               <div className="d-flex mb-4 justify-content-start align-items-center text-muted">
                 <div
-                  className={`mt-auto mb-auto ${language === "ar" ? "ms-2" : "me-2"}`}
+                  className={`mt-auto mb-auto ${
+                    language === "ar" ? "ms-2" : "me-2"
+                  }`}
                 >
                   <div className="bg-secondary bg-opacity-25 text-primary rounded-circle d-flex align-items-center justify-content-center bot-avatar">
                     <FaRobot size={14} />

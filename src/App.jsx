@@ -14,20 +14,64 @@ function App() {
   const [language, setLanguage] = useState("en");
   const [showSidebar, setShowSidebar] = useState(false);
 
-  // State management for chat sessions (Lifting State Up)
+  // State management for current messages and active chat session tracking
   const [messages, setMessages] = useState([]);
-  const [chatHistory, setChatHistory] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
 
-  // Triggers new chat session by saving current messages to history and clearing the chat window
+  // Initializing chat history state from local storage if available
+  const [chatHistory, setChatHistory] = useState(() => {
+    const saved = localStorage.getItem("chat_history");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Syncing chat history state with local storage on changes
+  useEffect(() => {
+    localStorage.setItem("chat_history", JSON.stringify(chatHistory));
+  }, [chatHistory]);
+
+  // Triggers new chat session and handles saving/updating logic to prevent duplicates
   const handleNewChat = () => {
     if (messages.length > 0) {
+      if (activeChatId) {
+        // Updates existing historical chat session with any new messages added
+        setChatHistory((prev) =>
+          prev.map((chat) =>
+            chat.id === activeChatId ? { ...chat, data: messages } : chat,
+          ),
+        );
+      } else {
+        // Creates a completely new chat session entry
+        const chatTitle = messages[0].text.substring(0, 20) + "...";
+        setChatHistory((prev) => [
+          { id: Date.now(), title: chatTitle, data: messages },
+          ...prev,
+        ]);
+      }
+    }
+    // Resets the chat window and session ID for a fresh start
+    setMessages([]);
+    setActiveChatId(null);
+  };
+
+  // Loads a selected historical chat session into the active messages view
+  const handleSelectChat = (chat) => {
+    // Auto-saves the current active session before switching, to prevent data loss
+    if (messages.length > 0 && !activeChatId) {
       const chatTitle = messages[0].text.substring(0, 20) + "...";
       setChatHistory((prev) => [
         { id: Date.now(), title: chatTitle, data: messages },
         ...prev,
       ]);
-      setMessages([]);
+    } else if (messages.length > 0 && activeChatId) {
+      setChatHistory((prev) =>
+        prev.map((c) => (c.id === activeChatId ? { ...c, data: messages } : c)),
+      );
     }
+
+    // Loads the selected chat data
+    setMessages(chat.data);
+    setActiveChatId(chat.id);
+    setShowSidebar(false); // Closes mobile sidebar if open during selection
   };
 
   // Determines layout direction (RTL/LTR) applied across the entire DOM
@@ -67,6 +111,7 @@ function App() {
             toggleLanguage={toggleLanguage}
             onNewChat={handleNewChat}
             chatHistory={chatHistory}
+            onSelectChat={handleSelectChat}
           />
         </div>
 
@@ -87,6 +132,7 @@ function App() {
               closeSidebar={handleSidebarClose}
               onNewChat={handleNewChat}
               chatHistory={chatHistory}
+              onSelectChat={handleSelectChat}
             />
           </Offcanvas.Body>
         </Offcanvas>
