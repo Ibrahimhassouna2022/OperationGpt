@@ -29,49 +29,65 @@ function App() {
     localStorage.setItem("chat_history", JSON.stringify(chatHistory));
   }, [chatHistory]);
 
-  // Triggers new chat session and handles saving/updating logic to prevent duplicates
+  // Triggers a new chat session and handles saving/updating logic safely
   const handleNewChat = () => {
-    if (messages.length > 0) {
+    if (messages && messages.length > 0) {
       if (activeChatId) {
-        // Updates existing historical chat session with any new messages added
+        // Updates existing historical chat session with active screen messages
         setChatHistory((prev) =>
           prev.map((chat) =>
             chat.id === activeChatId ? { ...chat, data: messages } : chat,
           ),
         );
       } else {
-        // Creates a completely new chat session entry
-        const chatTitle = messages[0].text.substring(0, 20) + "...";
+        // Fallback title extractor handling plain text messages safely
+        const firstMsg = messages[0];
+        let chatTitle = "New Chat Session...";
+        if (firstMsg && firstMsg.text) {
+          chatTitle = firstMsg.text.substring(0, 20) + "...";
+        }
+
+        // Creates a completely new historical record entry
         setChatHistory((prev) => [
           { id: Date.now(), title: chatTitle, data: messages },
           ...prev,
         ]);
       }
     }
-    // Resets the chat window and session ID for a fresh start
+    // Hard resets active interface state properties for next iteration cycle
     setMessages([]);
     setActiveChatId(null);
   };
 
-  // Loads a selected historical chat session into the active messages view
+  // Loads a selected historical chat session safely, with protective checks to prevent crashes
   const handleSelectChat = (chat) => {
-    // Auto-saves the current active session before switching, to prevent data loss
-    if (messages.length > 0 && !activeChatId) {
-      const chatTitle = messages[0].text.substring(0, 20) + "...";
-      setChatHistory((prev) => [
-        { id: Date.now(), title: chatTitle, data: messages },
-        ...prev,
-      ]);
-    } else if (messages.length > 0 && activeChatId) {
-      setChatHistory((prev) =>
-        prev.map((c) => (c.id === activeChatId ? { ...c, data: messages } : c)),
-      );
+    if (!chat || !Array.isArray(chat.data)) return;
+
+    // Optional auto-save buffer layer logic prior to switching active frames
+    if (messages && messages.length > 0) {
+      if (activeChatId) {
+        setChatHistory((prev) =>
+          prev.map((c) =>
+            c.id === activeChatId ? { ...c, data: messages } : c,
+          ),
+        );
+      } else {
+        const firstMsg = messages[0];
+        const chatTitle =
+          firstMsg && firstMsg.text
+            ? firstMsg.text.substring(0, 20) + "..."
+            : "Saved Chat...";
+        setChatHistory((prev) => [
+          { id: Date.now(), title: chatTitle, data: messages },
+          ...prev,
+        ]);
+      }
     }
 
-    // Loads the selected chat data
+    // Assigns retrieved target properties safely into memory states
     setMessages(chat.data);
     setActiveChatId(chat.id);
-    setShowSidebar(false); // Closes mobile sidebar if open during selection
+    setShowSidebar(false); // Collapses active navigation containers on smaller breakpoints
   };
 
   // Determines layout direction (RTL/LTR) applied across the entire DOM

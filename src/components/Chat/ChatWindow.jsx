@@ -47,7 +47,8 @@ const ChatWindow = ({
 
   // Helper function to render data array into a clean HTML table structure dynamically
   const renderDataToTable = (dataArray) => {
-    if (!Array.isArray(dataArray) || dataArray.length === 0) return null;
+    if (!dataArray || !Array.isArray(dataArray) || dataArray.length === 0)
+      return null;
 
     const headers = Object.keys(dataArray[0]);
 
@@ -99,20 +100,18 @@ const ChatWindow = ({
 
     try {
       const response = await sendCommandToAI(text, "user");
-      let botContent = null;
+      let rawData = null;
+      let textReply = "";
 
-      // Check if the backend response directly contains data to format into a table
+      // Smart response parser: store raw data arrays directly in the message object
       if (
         response &&
         (Array.isArray(response.data) || Array.isArray(response.result))
       ) {
-        const targetArray = response.data || response.result;
-        botContent = renderDataToTable(targetArray);
+        rawData = response.data || response.result;
       } else if (Array.isArray(response)) {
-        botContent = renderDataToTable(response);
+        rawData = response;
       } else {
-        // Fallback to text parsing if no arrays are detected
-        let textReply = "";
         if (response.reply) textReply = response.reply;
         else if (response.message) textReply = response.message;
         else if (response.data !== undefined && response.data !== null) {
@@ -129,12 +128,11 @@ const ChatWindow = ({
           textReply =
             language === "ar" ? "تمت العملية بنجاح" : "Operation successful";
         }
-        botContent = <span>{textReply}</span>;
       }
 
       setMessages((prev) => [
         ...prev,
-        { id: Date.now(), role: "bot", component: botContent },
+        { id: Date.now(), role: "bot", text: textReply, tableData: rawData },
       ]);
     } catch (error) {
       const errorMsg =
@@ -143,11 +141,7 @@ const ChatWindow = ({
           : "Server connection error occurred";
       setMessages((prev) => [
         ...prev,
-        {
-          id: Date.now(),
-          role: "bot",
-          component: <span>{error.message || errorMsg}</span>,
-        },
+        { id: Date.now(), role: "bot", text: error.message || errorMsg },
       ]);
     } finally {
       setIsLoading(false);
@@ -181,31 +175,51 @@ const ChatWindow = ({
           </div>
         ) : (
           <div className="w-100 mx-auto pb-4 messages-container">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`d-flex mb-4 w-100 ${msg.role === "user" ? "justify-content-end" : "justify-content-start"}`}
-              >
-                {msg.role === "bot" && (
-                  <div
-                    className={
-                      language === "ar"
-                        ? "ms-2 mt-auto mb-auto"
-                        : "me-2 mt-auto mb-auto"
-                    }
-                  >
-                    <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm bot-avatar">
-                      <FaRobot size={16} />
-                    </div>
-                  </div>
-                )}
+            {messages.map((msg) => {
+              if (!msg) return null;
+
+              // Check if message text contains raw HTML tables from legacy backend responses
+              const isHtml =
+                msg.role === "bot" &&
+                msg.text &&
+                typeof msg.text === "string" &&
+                msg.text.trim().startsWith("<");
+
+              return (
                 <div
-                  className={`p-3 shadow-sm chat-bubble ${getBubbleClass(msg.role)} ${msg.role === "user" ? "bg-primary text-white" : "bg-body border border-secondary border-opacity-10 text-body"}`}
+                  key={msg.id || Date.now() + Math.random()}
+                  className={`d-flex mb-4 w-100 ${msg.role === "user" ? "justify-content-end" : "justify-content-start"}`}
                 >
-                  {msg.component ? msg.component : <span>{msg.text}</span>}
+                  {msg.role === "bot" && (
+                    <div
+                      className={
+                        language === "ar"
+                          ? "ms-2 mt-auto mb-auto"
+                          : "me-2 mt-auto mb-auto"
+                      }
+                    >
+                      <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm bot-avatar">
+                        <FaRobot size={16} />
+                      </div>
+                    </div>
+                  )}
+                  <div
+                    className={`p-3 shadow-sm chat-bubble ${getBubbleClass(msg.role)} ${msg.role === "user" ? "bg-primary text-white" : "bg-body border border-secondary border-opacity-10 text-body"}`}
+                  >
+                    {msg.tableData ? (
+                      renderDataToTable(msg.tableData)
+                    ) : isHtml ? (
+                      <div
+                        dangerouslySetInnerHTML={{ __html: msg.text }}
+                        className="html-table-container table-responsive"
+                      />
+                    ) : (
+                      <span>{msg.text}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {isLoading && (
               <div className="d-flex mb-4 justify-content-start align-items-center text-muted">
                 <div
