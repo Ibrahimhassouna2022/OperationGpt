@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { sendCommandToAI } from "../../services/api";
-import { Button, Form, InputGroup } from "react-bootstrap";
+import { Button, Form, InputGroup, Table } from "react-bootstrap";
 import {
   FaBars,
   FaPaperPlane,
@@ -11,7 +11,6 @@ import {
 
 import "../../assets/css/chat.css";
 
-// Receives messages and setMessages props from the parent App component
 const ChatWindow = ({
   language = "en",
   toggleSidebar,
@@ -21,7 +20,7 @@ const ChatWindow = ({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Extracts the username injected by the Laravel Blade environment
+  // Injected dynamically via Laravel Auth
   const userName = window.AppUser?.name || "System Admin";
 
   const messagesEndRef = useRef(null);
@@ -36,26 +35,59 @@ const ChatWindow = ({
         : `Good Evening, ${userName}`,
     subtitle:
       language === "ar"
-        ? "أنا هنا لمساعدتك في مراقبة البنية التحتية، وتحليل السجلات، وتحسين أداء النظام. ماذا تريد أن تفعل اليوم؟"
-        : "I'm here to help you monitor infrastructure, analyze logs, and optimize system performance. What would you like to do today?",
+        ? "أنا هنا لمساعدتك في مراقبة البنية التحتية، وتحليل السجلات، وتحسين أداء النظام."
+        : "I'm here to help you monitor infrastructure, analyze logs, and optimize system performance.",
     placeholder:
       language === "ar" ? "اكتب رسالتك هنا..." : "Type your message here...",
-    prompts:
-      language === "ar"
-        ? [
-            "ملخص أداء قاعدة البيانات",
-            "فحص حالة الحاويات (K8s)",
-            "تحليل سجلات الأخطاء الأخيرة",
-          ]
-        : [
-            "Database Performance Summary",
-            "Check K8s Containers Status",
-            "Analyze Recent Error Logs",
-          ],
     disclaimer:
       language === "ar"
-        ? "يمكن لـ OperationGPT ارتكاب أخطاء. تحقق من المعلومات المهمة."
-        : "OperationGPT may make mistakes. Verify critical information.",
+        ? "يمكن لـ OperationGPT ارتكاب أخطاء."
+        : "OperationGPT may make mistakes.",
+  };
+
+  // Helper function to render data array into a clean HTML table structure dynamically
+  const renderDataToTable = (dataArray) => {
+    if (!Array.isArray(dataArray) || dataArray.length === 0) return null;
+
+    const headers = Object.keys(dataArray[0]);
+
+    return (
+      <div className="table-responsive my-2 border rounded shadow-sm bg-body">
+        <Table
+          striped
+          bordered
+          hover
+          size="sm"
+          className="mb-0 text-center align-middle"
+        >
+          <thead className="table-primary text-nowrap">
+            <tr>
+              {headers.map((h) => (
+                <th key={h} className="text-capitalize px-3 py-2">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dataArray.map((row, idx) => (
+              <tr key={idx}>
+                {headers.map((h) => {
+                  const value = row[h];
+                  return (
+                    <td key={h} className="px-3 py-2">
+                      {typeof value === "object"
+                        ? JSON.stringify(value)
+                        : String(value)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
+    );
   };
 
   const handleSend = async (text = input) => {
@@ -67,24 +99,55 @@ const ChatWindow = ({
 
     try {
       const response = await sendCommandToAI(text, "user");
+      let botContent = null;
 
-      const botReply =
-        response.reply ||
-        response.message ||
-        (language === "ar" ? "تمت العملية بنجاح" : "Operation successful");
+      // Check if the backend response directly contains data to format into a table
+      if (
+        response &&
+        (Array.isArray(response.data) || Array.isArray(response.result))
+      ) {
+        const targetArray = response.data || response.result;
+        botContent = renderDataToTable(targetArray);
+      } else if (Array.isArray(response)) {
+        botContent = renderDataToTable(response);
+      } else {
+        // Fallback to text parsing if no arrays are detected
+        let textReply = "";
+        if (response.reply) textReply = response.reply;
+        else if (response.message) textReply = response.message;
+        else if (response.data !== undefined && response.data !== null) {
+          textReply =
+            typeof response.data === "object"
+              ? JSON.stringify(response.data)
+              : String(response.data);
+        } else if (
+          typeof response === "string" ||
+          typeof response === "number"
+        ) {
+          textReply = String(response);
+        } else {
+          textReply =
+            language === "ar" ? "تمت العملية بنجاح" : "Operation successful";
+        }
+        botContent = <span>{textReply}</span>;
+      }
 
       setMessages((prev) => [
         ...prev,
-        { id: Date.now(), role: "bot", text: botReply },
+        { id: Date.now(), role: "bot", component: botContent },
       ]);
     } catch (error) {
       const errorMsg =
         language === "ar"
           ? "عذراً، حدث خطأ في الاتصال بالخادم."
-          : "Sorry, a server connection error occurred";
+          : "Server connection error occurred";
       setMessages((prev) => [
         ...prev,
-        { id: Date.now(), role: "bot", text: error.message || errorMsg },
+        {
+          id: Date.now(),
+          role: "bot",
+          component: <span>{error.message || errorMsg}</span>,
+        },
       ]);
     } finally {
       setIsLoading(false);
@@ -99,7 +162,6 @@ const ChatWindow = ({
 
   return (
     <div className="d-flex flex-column h-100 position-relative bg-body">
-      {/* Header section */}
       <div className="d-flex align-items-center p-3 border-bottom d-md-none">
         <Button
           variant="link"
@@ -116,100 +178,51 @@ const ChatWindow = ({
           <div className="m-auto text-center welcome-container">
             <h2 className="fw-bold mb-3">{t.greeting}</h2>
             <p className="text-muted mb-5 fs-6">{t.subtitle}</p>
-
-            <div className="d-flex flex-wrap justify-content-center gap-2">
-              {t.prompts.map((prompt, idx) => (
-                <Button
-                  key={idx}
-                  variant="outline-secondary"
-                  className="rounded-pill px-3 py-2 text-body border-opacity-25 bg-body-tertiary shadow-sm custom-hover quick-prompt-btn"
-                  onClick={() => handleSend(prompt)}
-                >
-                  {prompt}
-                </Button>
-              ))}
-            </div>
           </div>
         ) : (
           <div className="w-100 mx-auto pb-4 messages-container">
-            {messages.map((msg) => {
-              // Determines if the message text contains HTML structure
-              const isHtml =
-                msg.role === "bot" &&
-                typeof msg.text === "string" &&
-                msg.text.trim().startsWith("<");
-
-              return (
-                <div
-                  key={msg.id}
-                  className={`d-flex mb-4 w-100 ${
-                    msg.role === "user"
-                      ? "justify-content-end"
-                      : "justify-content-start"
-                  }`}
-                >
-                  {msg.role === "bot" && (
-                    <div
-                      className={`mt-auto mb-auto ${
-                        language === "ar" ? "ms-2" : "me-2"
-                      }`}
-                    >
-                      <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm bot-avatar">
-                        <FaRobot size={16} />
-                      </div>
-                    </div>
-                  )}
-
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`d-flex mb-4 w-100 ${msg.role === "user" ? "justify-content-end" : "justify-content-start"}`}
+              >
+                {msg.role === "bot" && (
                   <div
-                    className={`p-3 shadow-sm chat-bubble ${getBubbleClass(
-                      msg.role,
-                    )} ${
-                      msg.role === "user"
-                        ? "bg-primary text-white"
-                        : "bg-body border border-secondary border-opacity-10 text-body"
-                    }`}
+                    className={
+                      language === "ar"
+                        ? "ms-2 mt-auto mb-auto"
+                        : "me-2 mt-auto mb-auto"
+                    }
                   >
-                    {/* Renders raw HTML safely if the condition is met, otherwise renders text */}
-                    {isHtml ? (
-                      <div
-                        dangerouslySetInnerHTML={{ __html: msg.text }}
-                        className="html-table-container table-responsive"
-                      />
-                    ) : (
-                      <span>{msg.text}</span>
-                    )}
+                    <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm bot-avatar">
+                      <FaRobot size={16} />
+                    </div>
                   </div>
+                )}
+                <div
+                  className={`p-3 shadow-sm chat-bubble ${getBubbleClass(msg.role)} ${msg.role === "user" ? "bg-primary text-white" : "bg-body border border-secondary border-opacity-10 text-body"}`}
+                >
+                  {msg.component ? msg.component : <span>{msg.text}</span>}
                 </div>
-              );
-            })}
-
+              </div>
+            ))}
             {isLoading && (
               <div className="d-flex mb-4 justify-content-start align-items-center text-muted">
                 <div
-                  className={`mt-auto mb-auto ${
-                    language === "ar" ? "ms-2" : "me-2"
-                  }`}
+                  className={
+                    language === "ar"
+                      ? "ms-2 mt-auto mb-auto"
+                      : "me-2 mt-auto mb-auto"
+                  }
                 >
                   <div className="bg-secondary bg-opacity-25 text-primary rounded-circle d-flex align-items-center justify-content-center bot-avatar">
                     <FaRobot size={14} />
                   </div>
                 </div>
                 <div className="p-2 rounded-4 bg-body border border-secondary border-opacity-10 shadow-sm typing-container">
-                  <span
-                    className="spinner-grow spinner-grow-sm text-primary mx-1"
-                    role="status"
-                    aria-hidden="true"
-                  ></span>
-                  <span
-                    className="spinner-grow spinner-grow-sm text-primary mx-1 dot-delay-1"
-                    role="status"
-                    aria-hidden="true"
-                  ></span>
-                  <span
-                    className="spinner-grow spinner-grow-sm text-primary mx-1 dot-delay-2"
-                    role="status"
-                    aria-hidden="true"
-                  ></span>
+                  <span className="spinner-grow spinner-grow-sm text-primary mx-1"></span>
+                  <span className="spinner-grow spinner-grow-sm text-primary mx-1 dot-delay-1"></span>
+                  <span className="spinner-grow spinner-grow-sm text-primary mx-1 dot-delay-2"></span>
                 </div>
               </div>
             )}
@@ -235,7 +248,6 @@ const ChatWindow = ({
           >
             <FaMicrophone size={18} />
           </Button>
-
           <Form.Control
             placeholder={t.placeholder}
             value={input}
@@ -244,7 +256,6 @@ const ChatWindow = ({
             disabled={isLoading}
             className="bg-transparent border-0 shadow-none fs-6"
           />
-
           <Button
             variant="primary"
             onClick={() => handleSend()}
