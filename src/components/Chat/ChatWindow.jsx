@@ -21,7 +21,7 @@ const ChatWindow = ({
   const [isLoading, setIsLoading] = useState(false);
 
   // Injected dynamically via Laravel Auth
-  const userName = window.AppUser?.name || "System Admin";
+  const userName = window.AppUser?.name || "User Name";
 
   const messagesEndRef = useRef(null);
   const scrollToBottom = () =>

@@ -23,11 +23,9 @@ const Sidebar = ({
   onSelectChat,
 }) => {
   // Extracts the username and role from the Laravel Blade environment
-  const userName = window.AppUser?.name || "System Admin";
+  const userName = window.AppUser?.name || "User Name";
   const userRole =
-    window.AppUser?.role ||
-    (language === "ar" ? "مشرف النظام" : "System Admin");
-
+    window.AppUser?.role || (language === "ar" ? "مستخدم" : "User");
   const t = {
     title: "OperationGPT",
     subtitle: language === "ar" ? "مساعدك الذكي" : "AI Assistant",
