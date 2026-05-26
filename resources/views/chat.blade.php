@@ -9,11 +9,11 @@
  <script>
     // Injects authenticated user data dynamically from Laravel Auth
     window.AppUser = {
-        name: "{{ auth()->check() ? auth()->user()->name : 'System Admin' }}",
-        role: "{{ auth()->check() ? auth()->user()->role : 'System Admin' }}"
+        name: "{{ auth()->check() ? auth()->user()->name : 'User Name' }}",
+        role: "{{ auth()->check() ? auth()->user()->role : 'User' }}"
     };
 </script>
-    <link rel="stylesheet" href="{{ asset('../../public/frontend/ChatApp.css') }}">
+    <link rel="stylesheet" href="{{ asset('../../public/frontend/Chat_App.css') }}">
     <link rel="stylesheet" href="{{ asset('vendor/operation-gpt/frontend/index-DLGrjFAV.css') }}">
     <style>
         :root {
@@ -224,7 +224,7 @@
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="{{ asset('../../public/frontend/Chat_App.js') }}"></script>
+    <script type="module" src="{{ asset('../../public/frontend/ChatApp.js') }}"></script>
     <script type="module" src="{{ asset('vendor/operation-gpt/frontend/index-BTjBqddF.js') }}"></script>
 </body>
 </html>
