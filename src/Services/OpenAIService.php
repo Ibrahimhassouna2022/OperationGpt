@@ -18,8 +18,18 @@ class OpenAIService
         $this->apiKey = config('operation-gpt.openai_api_key');
         $this->model = config('operation-gpt.model', 'gpt-4o');
 
+        // Auto-detect OpenRouter key or use configured custom base
+        $apiBase = config('operation-gpt.openai_api_base');
+        if (!$apiBase) {
+            if (str_starts_with($this->apiKey, 'sk-or-')) {
+                $apiBase = 'https://openrouter.ai/api/v1/';
+            } else {
+                $apiBase = 'https://api.openai.com/v1/';
+            }
+        }
+
         $this->client = new Client([
-            'base_uri' => 'https://api.openai.com/v1/',
+            'base_uri' => $apiBase,
             'headers' => [
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type'  => 'application/json',
@@ -46,10 +56,15 @@ class OpenAIService
       
         // Fetch role-based prompt from configuration
         $roleConfigs = config('operation-gpt-prompts.roles', []);
-        $roleConfig = $roleConfigs[$userRole] ?? ($roleConfigs['user'] ?? [
-            'prompt' => "You are a standard Database Assistant. Role: User. Capability: You can ONLY SELECT data from the allowed tables.",
-            'constraints' => ['allowed_operations' => ['SELECT']]
-        ]);
+        
+        $roleConfig = $roleConfigs[$userRole] ?? ($roleConfigs['user'] ?? reset($roleConfigs));
+
+        if (!is_array($roleConfig) || empty($roleConfig)) {
+            $roleConfig = [
+                'prompt' => "You are a standard Database Assistant. Role: User. Capability: You can ONLY SELECT data from the allowed tables.",
+                'constraints' => ['allowed_operations' => ['SELECT']]
+            ];
+        }
         
         $rolePrompt = $roleConfig['prompt'] ?? "You are a standard Database Assistant. Role: User. Capability: You can ONLY SELECT data from the allowed tables.";
         $globalRules = implode("\n", config('operation-gpt-prompts.global_rules', []));

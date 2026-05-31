@@ -85,8 +85,14 @@ class ChatController extends Controller
         }
 
         // --- 2. Identity Injection for Regular Users ---
-        $isAdmin = isset($user->role) && ($user->role === 'admin' || $user->role === 'super_admin');
-        if (!$isAdmin && str_contains(strtoupper($sql), 'UPDATE')) {
+        $roleConfigs = config('operation-gpt-prompts.roles', []);
+        $userRole = $user->role ?? 'user';
+        $roleConfig = $roleConfigs[$userRole] ?? ($roleConfigs['user'] ?? []);
+        $roleConstraints = $roleConfig['constraints'] ?? [];
+        
+        $enforceSelfOnly = $roleConstraints['enforce_self_only'] ?? true;
+
+        if ($enforceSelfOnly && str_contains(strtoupper($sql), 'UPDATE')) {
             if (stripos($sql, 'WHERE') !== false) {
                 $sql = preg_replace('/WHERE\b.*/i', "WHERE {$userIdentifierColumn} = '$userIdentifier'", $sql);
             } else {

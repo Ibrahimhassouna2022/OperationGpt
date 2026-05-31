@@ -24,17 +24,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | OpenAI API Base URL
-    |--------------------------------------------------------------------------
-    |
-    | The base URL for the API requests. Useful for custom proxies,
-    | local models, or compatibility layers like OpenRouter.
-    |
-    */
-    'openai_api_base' => env('OPENAI_API_BASE', null),
-
-    /*
-    |--------------------------------------------------------------------------
     | Allowed Tables and Columns
     |--------------------------------------------------------------------------
     |

@@ -33,7 +33,6 @@ return [
             'description' => 'مدير النظام - صلاحيات كاملة لقراءة وتعديل جداول المعلمين والطلاب.',
             'constraints' => [
                 'allowed_operations' => ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
-                'enforce_self_only' => false,
             ],
             'prompt' => "You are the School Database Admin.
                 Role: Super Admin.
@@ -46,7 +45,6 @@ return [
             'description' => 'المعلم - يمكنه قراءة بيانات الطلاب وتعديل درجاتهم ومعدلاتهم فقط.',
             'constraints' => [
                 'allowed_operations' => ['SELECT', 'UPDATE'],
-                'enforce_self_only' => false,
             ],
             'prompt' => "You are a Teacher Assistant.
                 Role: Teacher.
@@ -59,7 +57,6 @@ return [
             'description' => 'الطالب - صلاحية قراءة فقط (SELECT) ومقيد برؤية بياناته الشخصية ودرجاته فقط.',
             'constraints' => [
                 'allowed_operations' => ['SELECT'],
-                'enforce_self_only' => true,
             ],
             'prompt' => "You are a Student Assistant.
                 Role: Student.
@@ -72,7 +69,6 @@ return [
             'description' => 'مستخدم عادي - صلاحية قراءة فقط (SELECT) للجداول المتاحة.',
             'constraints' => [
                 'allowed_operations' => ['SELECT'],
-                'enforce_self_only' => true,
             ],
             'prompt' => "You are a standard Database Assistant.
                 Role: User.

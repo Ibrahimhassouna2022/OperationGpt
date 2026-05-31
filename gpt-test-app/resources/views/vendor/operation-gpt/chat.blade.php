@@ -184,7 +184,6 @@
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* user = right side (RTL = flex-start visually on left) */
         .message.user {
             align-self: flex-end;
             background: var(--primary);
@@ -325,7 +324,6 @@
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── Welcome message ── */
         .welcome-msg {
             text-align: center;
             color: var(--text-muted);
@@ -349,7 +347,7 @@
                 </div>
             </div>
 
-            <!-- User Badge (top-right corner) -->
+            <!-- User Badge -->
             <div class="user-badge" id="user-badge">
                 <div class="user-avatar" id="user-avatar">؟</div>
                 <div class="user-info">
@@ -386,14 +384,13 @@
     document.addEventListener('DOMContentLoaded', () => {
 
         // ── 1. Load user info into badge ──────────────────────────────────
-        const user = window.AppUser || {};
-        const userName   = user.name || 'مستخدم';
-        const userRole   = user.role || '';
+        const user     = window.AppUser || {};
+        const userName = user.name || 'مستخدم';
+        const userRole = user.role || '';
 
         document.getElementById('user-name').textContent = userName;
         document.getElementById('user-role').textContent = userRole;
 
-        // First letter(s) as avatar initials
         const initials = userName.trim().split(' ')
             .map(w => w[0]).slice(0, 2).join('').toUpperCase();
         document.getElementById('user-avatar').textContent = initials || '؟';
@@ -439,13 +436,11 @@
 
             const wrapper = document.createElement('div');
 
-            // Row count label
             const count = document.createElement('div');
             count.className = 'table-count';
             count.textContent = `📊 ${data.length} سجل مُسترجع`;
             wrapper.appendChild(count);
 
-            // Scrollable wrapper
             const tableWrapper = document.createElement('div');
             tableWrapper.className = 'table-wrapper';
 
@@ -486,7 +481,6 @@
             const message = messageInput.value.trim();
             if (!message) return;
 
-            // Reset UI
             messageInput.value = '';
             messageInput.disabled = true;
             sendBtn.disabled = true;
@@ -512,8 +506,8 @@
                     appendMessage('bot', `⚠️ ${result.reply || result.message}`, 'error');
 
                 } else if (result.type === 'report') {
-                    // Show table (and optional reply text)
                     const container = document.createElement('div');
+                    // Show text label only if it's not HTML
                     if (result.reply && typeof result.reply === 'string' && !result.reply.startsWith('<')) {
                         const label = document.createElement('p');
                         label.style.margin = '0 0 6px';
@@ -525,7 +519,6 @@
                     appendMessage('bot', container);
 
                 } else {
-                    // action / success
                     appendMessage('bot', `✅ ${result.reply || result.message}`, 'success');
                 }
 
