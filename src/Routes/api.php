@@ -8,5 +8,5 @@ Route::middleware(['web'])->group(function () {
     Route::get('/operation-gpt', [ChatController::class, 'index'])->name('operation-gpt.index');
     
     // API Endpoint
-    Route::post('/operation-gpt/chat', [ChatController::class, 'chat'])->name('operation-gpt.chat');
+    Route::post('/api/operation-gpt/chat', [ChatController::class, 'chat'])->name('operation-gpt.chat');
 });
