@@ -53,7 +53,7 @@ const ChatWindow = ({
     const headers = Object.keys(dataArray[0]);
 
     return (
-      <div className="table-responsive my-2 border rounded shadow-sm bg-body">
+      <div className="table-responsive mt-2 mb-1 border rounded shadow-sm bg-body w-100">
         <Table
           striped
           bordered
@@ -99,31 +99,29 @@ const ChatWindow = ({
     setIsLoading(true);
 
     try {
-      const response = await sendCommandToAI(text, "user");
+      // Pass the actual selected language to backend API for localization
+      const response = await sendCommandToAI(text, language);
       let rawData = null;
       let textReply = "";
 
-      // Smart response parser: store raw data arrays directly in the message object
-      if (
-        response &&
-        (Array.isArray(response.data) || Array.isArray(response.result))
-      ) {
-        rawData = response.data || response.result;
-      } else if (Array.isArray(response)) {
-        rawData = response;
+      // Smart parsing based on the backend developer's strict response structure
+      if (response && response.type === "report") {
+        // Handle Select queries (Report Type)
+        textReply =
+          response.message ||
+          (language === "ar"
+            ? "إليك البيانات المطلوبة:"
+            : "Here is the requested data:");
+        // Extract raw array to build the table
+        rawData = Array.isArray(response.data) ? response.data : null;
       } else {
-        if (response.reply) textReply = response.reply;
-        else if (response.message) textReply = response.message;
-        else if (response.data !== undefined && response.data !== null) {
-          textReply =
-            typeof response.data === "object"
-              ? JSON.stringify(response.data)
-              : String(response.data);
-        } else if (
-          typeof response === "string" ||
-          typeof response === "number"
-        ) {
-          textReply = String(response);
+        // Handle normal text responses, standard messages, or fallback objects
+        if (response?.message) {
+          textReply = response.message;
+        } else if (response?.reply) {
+          textReply = response.reply;
+        } else if (typeof response === "string") {
+          textReply = response;
         } else {
           textReply =
             language === "ar" ? "تمت العملية بنجاح" : "Operation successful";
@@ -178,7 +176,7 @@ const ChatWindow = ({
             {messages.map((msg) => {
               if (!msg) return null;
 
-              // Check if message text contains raw HTML tables from legacy backend responses
+              // Check for legacy HTML response fallback
               const isHtml =
                 msg.role === "bot" &&
                 msg.text &&
@@ -203,23 +201,38 @@ const ChatWindow = ({
                       </div>
                     </div>
                   )}
+
+                  {/* The Chat Bubble Layer */}
                   <div
                     className={`p-3 shadow-sm chat-bubble ${getBubbleClass(msg.role)} ${msg.role === "user" ? "bg-primary text-white" : "bg-body border border-secondary border-opacity-10 text-body"}`}
+                    style={{ maxWidth: "90%" }}
                   >
-                    {msg.tableData ? (
-                      renderDataToTable(msg.tableData)
-                    ) : isHtml ? (
+                    {/* 1. Renders the message text (e.g. "تم جلب البيانات") */}
+                    {msg.text && !isHtml && (
                       <div
-                        dangerouslySetInnerHTML={{ __html: msg.text }}
-                        className="html-table-container table-responsive"
-                      />
-                    ) : (
-                      <span>{msg.text}</span>
+                        className={
+                          msg.tableData ? "mb-2 fw-bold text-primary" : ""
+                        }
+                      >
+                        <span>{msg.text}</span>
+                      </div>
                     )}
+
+                    {/* 2. Renders the Smart Table dynamically if report data exists */}
+                    {msg.tableData
+                      ? renderDataToTable(msg.tableData)
+                      : /* 3. Fallback for legacy HTML if it wasn't a strict 'report' type */
+                        isHtml && (
+                          <div
+                            dangerouslySetInnerHTML={{ __html: msg.text }}
+                            className="html-table-container table-responsive"
+                          />
+                        )}
                   </div>
                 </div>
               );
             })}
+
             {isLoading && (
               <div className="d-flex mb-4 justify-content-start align-items-center text-muted">
                 <div
