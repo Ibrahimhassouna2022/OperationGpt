@@ -131,11 +131,19 @@ class ChatController extends Controller
         try {
             if (stripos(trim($sql), 'SELECT') === 0) {
                 $result = DB::select($sql);
-                $htmlTable = $this->generateHtmlTable($result);
-                
+ 
+                if (empty($result)) {
+                    return response()->json([
+                        'type' => 'action', 
+                        'reply' => 'لا توجد بيانات مطابقة لاستعلامك.',
+                        'message' => 'لا توجد بيانات مطابقة لاستعلامك.',
+                        'data' => []
+                    ]);
+                }
+
                 return response()->json([
                     'type' => 'report', 
-                    'reply' => $htmlTable,
+                    'reply' => 'إليك البيانات المطلوبة:',
                     'message' => 'تم جلب البيانات.', 
                     'data' => $result
                 ]);
@@ -169,37 +177,7 @@ class ChatController extends Controller
         }
     }
 
-    private function generateHtmlTable($data)
-    {
-        if (empty($data)) {
-            return '<p style="color: var(--text-muted); margin-top: 10px;">لا توجد بيانات مطابقة.</p>';
-        }
-
-        $html = '<div style="overflow-x: auto; margin-top: 15px;"><table class="report-table" style="width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1);">';
-        
-        // Headers
-        $firstRow = (array) $data[0];
-        $html .= '<thead><tr>';
-        foreach (array_keys($firstRow) as $header) {
-            $html .= '<th style="background: rgba(255, 255, 255, 0.1); padding: 12px; text-align: right; font-size: 0.85rem; color: #94a3b8;">' . htmlspecialchars($header) . '</th>';
-        }
-        $html .= '</tr></thead><tbody>';
-
-        // Rows
-        foreach ($data as $row) {
-            $html .= '<tr>';
-            foreach ((array) $row as $value) {
-                // If value is null, make it an empty string
-                $displayValue = $value === null ? '' : (string) $value;
-                $html .= '<td style="padding: 12px; border-top: 1px solid rgba(255, 255, 255, 0.05); font-size: 0.9rem;">' . htmlspecialchars($displayValue) . '</td>';
-            }
-            $html .= '</tr>';
-        }
-
-        $html .= '</tbody></table></div>';
-
-        return $html;
-    }
+  
 }
 
 
