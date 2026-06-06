@@ -5,8 +5,8 @@ use OperationGpt\Http\Controllers\ChatController;
 
 Route::middleware(['web'])->group(function () {
     // UI Chat Page
-    Route::get('/operation-gpt', [ChatController::class, 'index'])->name('operation-gpt.index');
+    Route::get('/operation-gpt', [ChatController::class, 'index'])->name('operation-gpt.index')->middleware('auth');
     
     // API Endpoint
-    Route::post('/api/operation-gpt/chat', [ChatController::class, 'chat'])->name('operation-gpt.chat');
+    Route::post('/operation-gpt/chat', [ChatController::class, 'chat'])->name('operation-gpt.chat');
 });
