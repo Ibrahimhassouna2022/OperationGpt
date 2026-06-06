@@ -17,17 +17,20 @@ const ChatWindow = ({
   messages,
   setMessages,
 }) => {
+  // Manage user input and loading state during API calls
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Injected dynamically via Laravel Auth
+  // Safely retrieve the authenticated user's name injected by Laravel Blade
   const userName = window.AppUser?.name || "User Name";
 
+  // Automatically scroll to the latest message when the messages array updates
   const messagesEndRef = useRef(null);
   const scrollToBottom = () =>
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages]);
 
+  // Localization dictionary for dynamic UI text
   const t = {
     greeting:
       language === "ar"
@@ -45,7 +48,10 @@ const ChatWindow = ({
         : "OperationGPT may make mistakes.",
   };
 
-  // Helper function to render data array into a clean HTML table structure dynamically
+  /**
+   * Helper function: Dynamically generates a responsive Bootstrap table
+   * from raw JSON data arrays returned by the AI database queries.
+   */
   const renderDataToTable = (dataArray) => {
     if (!dataArray || !Array.isArray(dataArray) || dataArray.length === 0)
       return null;
@@ -91,31 +97,36 @@ const ChatWindow = ({
     );
   };
 
+  /**
+   * Handles the message submission process, including UI updates,
+   * API communication, and response parsing.
+   */
   const handleSend = async (text = input) => {
+    // Prevent empty submissions or multiple requests while already loading
     if (!text.trim() || isLoading) return;
 
+    // Optimistically add the user's message to the chat interface
     setMessages((prev) => [...prev, { id: Date.now(), role: "user", text }]);
     setInput("");
     setIsLoading(true);
 
     try {
-      // Pass the actual selected language to backend API for localization
+      // Pass the active language to the backend for localized AI responses
       const response = await sendCommandToAI(text, language);
       let rawData = null;
       let textReply = "";
 
-      // Smart parsing based on the backend developer's strict response structure
+      // Smart parser: Evaluate the backend response structure
       if (response && response.type === "report") {
-        // Handle Select queries (Report Type)
+        // Handle explicit database query results (Select statements)
         textReply =
           response.message ||
           (language === "ar"
             ? "إليك البيانات المطلوبة:"
             : "Here is the requested data:");
-        // Extract raw array to build the table
         rawData = Array.isArray(response.data) ? response.data : null;
       } else {
-        // Handle normal text responses, standard messages, or fallback objects
+        // Fallback parsing for standard conversational text or missing properties
         if (response?.message) {
           textReply = response.message;
         } else if (response?.reply) {
@@ -128,11 +139,13 @@ const ChatWindow = ({
         }
       }
 
+      // Append the AI's response (and potential table data) to the chat
       setMessages((prev) => [
         ...prev,
         { id: Date.now(), role: "bot", text: textReply, tableData: rawData },
       ]);
     } catch (error) {
+      // Handle network or server-side errors gracefully
       const errorMsg =
         language === "ar"
           ? "عذراً، حدث خطأ في الاتصال بالخادم."
@@ -146,6 +159,7 @@ const ChatWindow = ({
     }
   };
 
+  // Determine the appropriate CSS class for chat bubbles based on role and active language
   const getBubbleClass = (role) => {
     if (role === "user")
       return language === "ar" ? "bubble-user-ar" : "bubble-user-en";
@@ -154,6 +168,7 @@ const ChatWindow = ({
 
   return (
     <div className="d-flex flex-column h-100 position-relative bg-body">
+      {/* Mobile sidebar toggle header */}
       <div className="d-flex align-items-center p-3 border-bottom d-md-none">
         <Button
           variant="link"
@@ -167,6 +182,7 @@ const ChatWindow = ({
 
       <div className="flex-grow-1 overflow-auto p-3 p-md-5 d-flex flex-column chat-scroll-area">
         {messages.length === 0 ? (
+          /* Welcome screen shown when the chat is completely empty */
           <div className="m-auto text-center welcome-container">
             <h2 className="fw-bold mb-3">{t.greeting}</h2>
             <p className="text-muted mb-5 fs-6">{t.subtitle}</p>
@@ -176,7 +192,7 @@ const ChatWindow = ({
             {messages.map((msg) => {
               if (!msg) return null;
 
-              // Check for legacy HTML response fallback
+              // Support for legacy backend behavior: check if the response is raw HTML
               const isHtml =
                 msg.role === "bot" &&
                 msg.text &&
@@ -189,13 +205,7 @@ const ChatWindow = ({
                   className={`d-flex mb-4 w-100 ${msg.role === "user" ? "justify-content-end" : "justify-content-start"}`}
                 >
                   {msg.role === "bot" && (
-                    <div
-                      className={
-                        language === "ar"
-                          ? "ms-2 mt-auto mb-auto"
-                          : "me-2 mt-auto mb-auto"
-                      }
-                    >
+                    <div className="me-2 mt-auto mb-auto">
                       <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm bot-avatar">
                         <FaRobot size={16} />
                       </div>
@@ -207,7 +217,7 @@ const ChatWindow = ({
                     className={`p-3 shadow-sm chat-bubble ${getBubbleClass(msg.role)} ${msg.role === "user" ? "bg-primary text-white" : "bg-body border border-secondary border-opacity-10 text-body"}`}
                     style={{ maxWidth: "90%" }}
                   >
-                    {/* 1. Renders the message text (e.g. "تم جلب البيانات") */}
+                    {/* Render the descriptive text message if available */}
                     {msg.text && !isHtml && (
                       <div
                         className={
@@ -218,11 +228,10 @@ const ChatWindow = ({
                       </div>
                     )}
 
-                    {/* 2. Renders the Smart Table dynamically if report data exists */}
+                    {/* Prioritize rendering the dynamic React table, fallback to raw HTML if necessary */}
                     {msg.tableData
                       ? renderDataToTable(msg.tableData)
-                      : /* 3. Fallback for legacy HTML if it wasn't a strict 'report' type */
-                        isHtml && (
+                      : isHtml && (
                           <div
                             dangerouslySetInnerHTML={{ __html: msg.text }}
                             className="html-table-container table-responsive"
@@ -233,15 +242,10 @@ const ChatWindow = ({
               );
             })}
 
+            {/* Loading indicator with typing animation */}
             {isLoading && (
               <div className="d-flex mb-4 justify-content-start align-items-center text-muted">
-                <div
-                  className={
-                    language === "ar"
-                      ? "ms-2 mt-auto mb-auto"
-                      : "me-2 mt-auto mb-auto"
-                  }
-                >
+                <div className="me-2 mt-auto mb-auto">
                   <div className="bg-secondary bg-opacity-25 text-primary rounded-circle d-flex align-items-center justify-content-center bot-avatar">
                     <FaRobot size={14} />
                   </div>
@@ -289,10 +293,7 @@ const ChatWindow = ({
             disabled={isLoading || !input.trim()}
             className="rounded-circle d-flex align-items-center justify-content-center p-0 ms-1 me-1 shadow-sm send-btn"
           >
-            <FaPaperPlane
-              size={16}
-              className={language === "ar" ? "ms-1" : "me-1"}
-            />
+            <FaPaperPlane size={16} className="me-1" />
           </Button>
         </InputGroup>
         <div className="text-muted mt-2 disclaimer-text text-center">
