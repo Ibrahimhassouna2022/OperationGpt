@@ -37,31 +37,22 @@ const Sidebar = ({
     darkMode: language === "ar" ? "الوضع الليلي" : "Dark Mode",
     lightMode: language === "ar" ? "الوضع النهاري" : "Light Mode",
     langToggle: language === "ar" ? "English (LTR)" : "العربية (RTL)",
+    // Updated text to reflect "Exit Chat" instead of full "Logout"
+    exitChat: language === "ar" ? "الخروج من الدردشة" : "Exit Chat",
   };
 
   /**
-   * Securely terminates the Laravel session by submitting a hidden form
-   * with the required CSRF token.
+   * Exits the chat interface and navigates the user back to the previous page
+   * they were on before entering the OperationGPT route.
    */
-  const handleLogout = () => {
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "/logout";
-
-    const csrfToken = document
-      .querySelector('meta[name="csrf-token"]')
-      ?.getAttribute("content");
-
-    if (csrfToken) {
-      const csrfInput = document.createElement("input");
-      csrfInput.type = "hidden";
-      csrfInput.name = "_token";
-      csrfInput.value = csrfToken;
-      form.appendChild(csrfInput);
+  const handleExitChat = () => {
+    if (window.history.length > 1 || document.referrer) {
+      // Returns the user to the exact previous page seamlessly
+      window.history.back();
+    } else {
+      // Fallback: If they navigated directly to the chat URL, send them to the root/dashboard
+      window.location.href = "/";
     }
-
-    document.body.appendChild(form);
-    form.submit();
   };
 
   return (
@@ -70,7 +61,7 @@ const Sidebar = ({
         isDarkMode ? "bg-dark text-white" : "bg-body-tertiary text-body"
       }`}
     >
-      {/* Sidebar Header - Using gap-2 for consistent spacing */}
+      {/* Sidebar Header */}
       <div className="d-flex align-items-center mb-4 px-2 mt-2 gap-2">
         <FaRobot className="text-primary fs-3" />
         <div>
@@ -79,7 +70,7 @@ const Sidebar = ({
         </div>
       </div>
 
-      {/* New Chat Button - Using gap-2 */}
+      {/* New Chat Button */}
       <Button
         variant="primary"
         onClick={onNewChat}
@@ -103,7 +94,6 @@ const Sidebar = ({
                 e.preventDefault();
                 onSelectChat(chat);
               }}
-              // Using gap-2 for proper icon-text separation
               className={`d-flex align-items-center justify-content-start gap-2 rounded mb-1 px-3 py-2 sidebar-link-faded ${
                 isDarkMode ? "text-light" : "text-dark"
               }`}
@@ -123,7 +113,7 @@ const Sidebar = ({
 
       {/* Bottom Action Menu */}
       <div className="mt-auto">
-        {/* Settings Button - Using gap-3 */}
+        {/* Settings Button */}
         <Button
           variant="link"
           className={`w-100 d-flex align-items-center justify-content-start gap-3 mb-3 text-decoration-none px-3 ${
@@ -135,7 +125,7 @@ const Sidebar = ({
         </Button>
 
         <div className="pt-3 border-top border-secondary border-opacity-25">
-          {/* Language Toggle - Using gap-3 */}
+          {/* Language Toggle */}
           <Button
             variant="link"
             className={`w-100 d-flex align-items-center justify-content-start gap-3 mb-2 text-decoration-none px-3 ${
@@ -147,7 +137,7 @@ const Sidebar = ({
             <span>{t.langToggle}</span>
           </Button>
 
-          {/* Theme Toggle - Using gap-3 */}
+          {/* Theme Toggle */}
           <Button
             variant="link"
             className={`w-100 d-flex align-items-center justify-content-start gap-3 mb-2 text-decoration-none px-3 ${
@@ -163,17 +153,17 @@ const Sidebar = ({
             <span>{isDarkMode ? t.lightMode : t.darkMode}</span>
           </Button>
 
-          {/* Logout Button - Using gap-3 */}
+          {/* Exit Chat Button */}
           <Button
             variant="link"
             className="w-100 d-flex align-items-center justify-content-start gap-3 mb-2 text-decoration-none px-3 text-danger"
-            onClick={handleLogout}
+            onClick={handleExitChat}
           >
             <FaSignOutAlt />
-            <span>{language === "ar" ? "تسجيل الخروج" : "Logout"}</span>
+            <span>{t.exitChat}</span>
           </Button>
 
-          {/* User Profile Summary - Using gap-2 */}
+          {/* User Profile Summary */}
           <div className="d-flex align-items-center justify-content-start gap-2 bg-secondary bg-opacity-10 p-2 rounded-3 mt-2">
             <div className="bg-dark text-white rounded-circle d-flex align-items-center justify-content-center user-avatar">
               {userName.substring(0, 2).toUpperCase()}
