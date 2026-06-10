@@ -28,57 +28,56 @@ return [
 
     'roles' => [
 
-        'super_admin' => [
-            'name' => 'School Administrator',
-            'description' => 'مدير النظام - صلاحيات كاملة لقراءة وتعديل جداول المعلمين والطلاب.',
+        /*
+        |--------------------------------------------------------------------------
+        | Example Role (Template)
+        |--------------------------------------------------------------------------
+        |
+        | You can define as many roles as you need by following this exact structure.
+        | Just copy this 'example_role' block, rename the key (e.g., 'manager', 'editor'),
+        | and adjust the settings below.
+        |
+        */
+        'example_role' => [
+            // 1. Role Display Name
+            'name' => 'Example Admin',
+            
+            // 2. Role Description (For your own reference or UI display)
+            'description' => 'This is an example role that demonstrates all available configuration options.',
+            
+            // 3. Security Constraints
             'constraints' => [
+                // Which SQL operations are allowed? (e.g., SELECT, INSERT, UPDATE, DELETE)
                 'allowed_operations' => ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
+                
+                // Which tables can this role access? (Leave empty or don't set to allow all, if handled by prompt)
+                'allowed_tables' => ['users', 'posts', 'comments'],
+                
+                // Set to true if the user should ONLY be able to see/modify their own data (enforced via user ID)
                 'enforce_self_only' => false,
+                
+                // Optional: Force specific WHERE conditions for certain tables.
+                // This defines EXACTLY ON WHOM the 'allowed_operations' (defined above) can be applied.
+                // For example: Restrict this role to only apply operations on their own record in the 'users' table.
+                'allowed_query_conditions' => [
+                    'users' => [
+                        "role = 'user'",     // Mandatory condition: Operations apply ONLY to users with the 'user' role
+                        "id = :identifier"   // Mandatory condition: Operations apply ONLY to the current user's own record
+                    ]
+                ] 
             ],
-            'prompt' => "You are the School Database Admin.
-                Role: Super Admin.
-                Capability: You have full access to users, teachers, and students tables.
-                Constraints: Generate raw clean SQL.",
+            
+            // 4. System Prompt (AI Instructions)
+            'prompt' => "You are a Database Assistant.
+                Role: Example Admin.
+                Capability: You have access to users, posts, and comments.
+                Constraints: Generate raw clean SQL based on the user's request.",
         ],
 
-        'teacher' => [
-            'name' => 'Teacher',
-            'description' => 'المعلم - يمكنه قراءة بيانات الطلاب وتعديل درجاتهم ومعدلاتهم فقط.',
-            'constraints' => [
-                'allowed_operations' => ['SELECT', 'UPDATE'],
-                'enforce_self_only' => false,
-            ],
-            'prompt' => "You are a Teacher Assistant.
-                Role: Teacher.
-                Capability: You can SELECT from all tables. You can ONLY UPDATE the `students` table (like modifying gpa or grade). You are NOT allowed to modify the `teachers` or `users` tables.
-                Constraints: Restrict modifications to students only.",
-        ],
+        // ------------------------------------------------------------------------
+        // Add more roles below following the same pattern as 'example_role'
+        // ------------------------------------------------------------------------
 
-        'student' => [
-            'name' => 'Student',
-            'description' => 'الطالب - صلاحية قراءة فقط (SELECT) ومقيد برؤية بياناته الشخصية ودرجاته فقط.',
-            'constraints' => [
-                'allowed_operations' => ['SELECT'],
-                'enforce_self_only' => true,
-            ],
-            'prompt' => "You are a Student Assistant.
-                Role: Student.
-                Capability: You can ONLY SELECT data.
-                Constraints: STRICT RULE: You MUST append `user_id = :identifier` or `id = :identifier` to the WHERE clause when querying `students`, `teachers`, or `users` tables to ensure the student only sees their own data.",
-        ],
-
-        'user' => [
-            'name' => 'Standard User',
-            'description' => 'مستخدم عادي - صلاحية قراءة فقط (SELECT) للجداول المتاحة.',
-            'constraints' => [
-                'allowed_operations' => ['SELECT'],
-                'enforce_self_only' => true,
-            ],
-            'prompt' => "You are a standard Database Assistant.
-                Role: User.
-                Capability: You can ONLY SELECT data from the allowed tables.
-                Constraints: You cannot modify any data.",
-        ],
     ],
 
     /*

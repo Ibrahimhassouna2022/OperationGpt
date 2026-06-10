@@ -68,52 +68,130 @@ class ChatController extends Controller
 
     private function executeQuerySecurely($sql)
     {
-        // authentication of the user
+        // جلب بيانات مستخدم المصادقة والمعرفات
         $user = Auth::user(); 
         $userIdentifierColumn = $user->getAuthIdentifierName();
         $userIdentifier = $user->getAuthIdentifier(); 
+        $userRole = $user->role ?? 'user';
+
+        // جلب مصفوفة الإعدادات الخاصة بدور المستخدم الحالي
+        $roleConfigs = config('operation-gpt-prompts.roles', []);
+        $roleConfig = $roleConfigs[$userRole] ?? ($roleConfigs['user'] ?? []);
+        $roleConstraints = $roleConfig['constraints'] ?? [];
+
+        // =========================================================================
+        // 🛡️ طبقة الأمان الأولى: فحص القائمة البيضاء للجداول (Allowed Tables)
+        // =========================================================================
+        $allowedTables = $roleConstraints['allowed_tables'] ?? []; 
+        
+        // استخراج أسماء الجداول المطلوبة من الاستعلام باستخدام نمط Regex العام
+        $tablePattern = '/(?:FROM|JOIN|UPDATE|INTO)\s+[`"\'\s]*([a-zA-Z0-9_]+)/i';
+        preg_match_all($tablePattern, $sql, $matches);
+        $requestedTables = array_unique(array_map('strtolower', $matches[1] ?? []));
+
+        // حظر الاستعلام فوراً إذا طلب جدول غير مدرج في القائمة البيضاء لهذا الدور
+        foreach ($requestedTables as $table) {
+            if (!in_array($table, array_map('strtolower', $allowedTables))) {
+                return response()->json([
+                    'type' => 'error',
+                    'reply' => 'عذراً، لا تمتلك الصلاحية للوصول إلى أحد الجداول المطلوبة في هذا الاستعلام.',
+                    'message' => "Access to unlisted table ($table) denied for role: $userRole."
+                ], 403);
+            }
+        }
 
         // --- 1. Password Hash Processing ---
         if (stripos($sql, 'password') !== false && (stripos($sql, 'UPDATE') !== false || stripos($sql, 'INSERT') !== false)) {
             $pattern = "/password\s*=\s*['\"]([^'\"]+)['\"]/i";
-                if (preg_match($pattern, $sql, $matches)) {
-                    $plainPassword = $matches[1];
-                    $hashedPassword = Hash::make($plainPassword);
-                    $sql = str_replace("'$plainPassword'", "'$hashedPassword'", $sql);
-                    $sql = str_replace("\"$plainPassword\"", "'$hashedPassword'", $sql);
-                }
-        }
-
-        // --- 2. Identity Injection for Regular Users ---
-        $roleConfigs = config('operation-gpt-prompts.roles', []);
-        $userRole = $user->role ?? 'user';
-        $roleConfig = $roleConfigs[$userRole] ?? ($roleConfigs['user'] ?? []);
-        $roleConstraints = $roleConfig['constraints'] ?? [];
-        
-        $enforceSelfOnly = $roleConstraints['enforce_self_only'] ?? true;
-
-        if ($enforceSelfOnly && str_contains(strtoupper($sql), 'UPDATE')) {
-            if (stripos($sql, 'WHERE') !== false) {
-                $sql = preg_replace('/WHERE\b.*/i', "WHERE {$userIdentifierColumn} = '$userIdentifier'", $sql);
-            } else {
-                $sql = rtrim(trim($sql), ';') . " WHERE {$userIdentifierColumn} = '$userIdentifier'";
+            if (preg_match($pattern, $sql, $matches)) {
+                $plainPassword = $matches[1];
+                $hashedPassword = Hash::make($plainPassword);
+                $sql = str_replace("'$plainPassword'", "'$hashedPassword'", $sql);
+                $sql = str_replace("\"$plainPassword\"", "'$hashedPassword'", $sql);
             }
         }
 
         $sqlUpper = strtoupper(trim($sql));
 
+        // =========================================================================
+        // 🛡️ طبقة الأمان الثانية: التحقق الديناميكي العام من الشروط (لمنع تعديل مستخدمين آخرين)
+        // =========================================================================
+        $allowedQueryConditions = $roleConstraints['allowed_query_conditions'] ?? [];
+
+        if (!empty($allowedQueryConditions) && (str_contains($sqlUpper, 'UPDATE') || str_contains($sqlUpper, 'DELETE'))) {
+            foreach ($allowedQueryConditions as $targetTable => $conditions) {
+                if (stripos($sql, $targetTable) !== false) {
+                    $hasValidCondition = false;
+
+                    // تنظيف نص الاستعلام الحالي تماماً من المسافات والتنصيص للمقارنة العادلة
+                    $cleanSql = str_replace([' ', "'", '"', '`'], '', $sql);
+
+                    foreach ($conditions as $condition) {
+                        // استبدال رمز النائب :identifier بالمعرف الحقيقي الحالي للمستخدم
+                        $parsedCondition = str_replace(':identifier', $userIdentifier, $condition);
+                        
+                        // تنظيف الشرط المتوقع من المسافات وعلامات التنصيص أيضاً
+                        $cleanCondition = str_replace([' ', "'", '"', '`'], '', $parsedCondition);
+
+                        // إذا وجدنا الشرط الآمن متوفراً داخل نص الاستعلام
+                        if (stripos($cleanSql, $cleanCondition) !== false) {
+                            $hasValidCondition = true;
+                            break; 
+                        }
+                    }
+
+                    // حظر الاختراق فوراً إذا لم يستوفِ الاستعلام أي شرط مسموح في الـ Config للجدول المستهدف
+                    if (!$hasValidCondition) {
+                        return response()->json([
+                            'type' => 'error',
+                            'reply' => 'عذراً، الاستعلام لا يستوفي شروط الأمان المسموحة لدورك الحالي.',
+                            'message' => "Query on table ($targetTable) violates allowed_query_conditions for role: $userRole."
+                        ], 403);
+                    }
+                }
+            }
+        }
+
+        // =========================================================================
+        // 🛡️ طبقة الأمان الثالثة: الرفض الصارم للمستخدمين المقيدين ببياناتهم الشخصية فقط (enforce_self_only)
+        // =========================================================================
+        $enforceSelfOnly = $roleConstraints['enforce_self_only'] ?? true;
+
+        if ($enforceSelfOnly) {
+            // حظر عمليات الـ UPDATE المشبوهة أو التي لا تضمن تعديل نفس السجل الشخصي (مثل WHERE 1=1)
+            if (str_contains($sqlUpper, 'UPDATE')) {
+                $expectedCondition = "{$userIdentifierColumn} = '{$userIdentifier}'";
+                $expectedConditionNoQuotes = "{$userIdentifierColumn} = {$userIdentifier}";
+                
+                if (stripos($sql, $expectedCondition) === false && stripos($sql, $expectedConditionNoQuotes) === false) {
+                    return response()->json([
+                        'type' => 'error',
+                        'reply' => 'عذراً، لا يمكنك تعديل بيانات مستخدمين آخرين أو إجراء تعديل جماعي.',
+                        'message' => 'Unauthorized UPDATE attempt blocked by enforce_self_only guard.'
+                    ], 403);
+                }
+            } 
+            // حظر استعلامات الـ SELECT التي تحاول سحب بيانات مستخدمين آخرين من الجداول الحساسة كـ users و enrollments
+            elseif (str_contains($sqlUpper, 'SELECT')) {
+                if (stripos($sql, 'users') !== false || stripos($sql, 'enrollments') !== false) {
+                    $expectedPattern = "/({$userIdentifierColumn}|student_id)\s*=\s*['\"]?{$userIdentifier}['\"]?/i";
+                    if (!preg_match($expectedPattern, $sql)) {
+                        return response()->json([
+                            'type' => 'error',
+                            'reply' => 'عذراً، لا يمكنك عرض بيانات مستخدمين آخرين.',
+                            'message' => 'Unauthorized data leak protection block by enforce_self_only guard.'
+                        ], 403);
+                    }
+                }
+            }
+        }
+
         // --- 3. Role-Based Permissions Check ---
-        // We rely entirely on the configuration to determine what is allowed.
-        // If 'DROP' is in allowed_operations for a role, the system will permit it.
-        $roleConfigs = config('operation-gpt-prompts.roles', []);
-        $userRole = $user->role ?? 'user';
-        $roleConfig = $roleConfigs[$userRole] ?? ($roleConfigs['user'] ?? []);
-        $roleConstraints = $roleConfig['constraints'] ?? [];
+        $isOperationAllowed = false;
         $allowedOps = $roleConstraints['allowed_operations'] ?? ['SELECT'];
 
-        $isOperationAllowed = false;
         foreach ($allowedOps as $op) {
-            if (str_starts_with($sqlUpper, strtoupper($op))) {
+            if (str_starts_with($sqlUpper, strtoupper(trim($op)))) {
                 $isOperationAllowed = true;
                 break;
             }
@@ -131,7 +209,7 @@ class ChatController extends Controller
         try {
             if (stripos(trim($sql), 'SELECT') === 0) {
                 $result = DB::select($sql);
- 
+    
                 if (empty($result)) {
                     return response()->json([
                         'type' => 'action', 
@@ -176,6 +254,7 @@ class ChatController extends Controller
             ], 500);
         }
     }
+
 
   
 }
