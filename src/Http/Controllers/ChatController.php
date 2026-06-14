@@ -28,7 +28,7 @@ class ChatController extends Controller
         if (!Auth::check()) {
             return response()->json([
                 'type' => 'error', 
-                'reply' => 'يرجى تسجيل الدخول أولاً.',
+                'reply' => 'Please login first.',
                 'message' => 'User not authenticated.'
             ], 401);
         }
@@ -43,14 +43,23 @@ class ChatController extends Controller
             $cleanResponse = preg_replace('/```json|```/', '', $aiResponse);
             $data = json_decode(trim($cleanResponse), true);
 
+            // Intercept smart rejection messages from the AI
+            if (!empty($data['error'])) {
+                return response()->json([
+                    'type' => 'error',
+                    'reply' => $data['error'],
+                    'message' => $data['error']
+                ], 403);
+            }
+
             $sql = $data['sql_query'] ?? null;
 
             if (!$sql) {
                 Log::error("Failed AI Response: " . $aiResponse);
                 return response()->json([
                     'type' => 'error', 
-                    'reply' => 'لم يتم تكوين استعلام. يرجى إعادة صياغة طلبك بطريقة أوضح.',
-                    'message' => 'لم يتم تكوين استعلام.'
+                    'reply' => 'No query was generated. Please rephrase your request more clearly.',
+                    'message' => 'No query was generated.'
                 ], 422);
             }
 
@@ -60,7 +69,7 @@ class ChatController extends Controller
             Log::error("ChatController Error: " . $e->getMessage());
             return response()->json([
                 'type' => 'error',
-                'reply' => 'حدث خطأ في النظام. يرجى المحاولة لاحقاً.',
+                'reply' => 'A system error occurred. Please try again later.',
                 'message' => $e->getMessage()
             ], 500);
         }
@@ -68,33 +77,33 @@ class ChatController extends Controller
 
     private function executeQuerySecurely($sql)
     {
-        // جلب بيانات مستخدم المصادقة والمعرفات
+        // Fetch authenticated user data and identifiers
         $user = Auth::user(); 
         $userIdentifierColumn = $user->getAuthIdentifierName();
         $userIdentifier = $user->getAuthIdentifier(); 
         $userRole = $user->role ?? 'user';
 
-        // جلب مصفوفة الإعدادات الخاصة بدور المستخدم الحالي
+        // Fetch the configuration array for the current user's role
         $roleConfigs = config('operation-gpt-prompts.roles', []);
         $roleConfig = $roleConfigs[$userRole] ?? ($roleConfigs['user'] ?? []);
         $roleConstraints = $roleConfig['constraints'] ?? [];
 
         // =========================================================================
-        // 🛡️ طبقة الأمان الأولى: فحص القائمة البيضاء للجداول (Allowed Tables)
+        // 🛡️ First Security Layer: Allowed Tables Whitelist Check
         // =========================================================================
         $allowedTables = $roleConstraints['allowed_tables'] ?? []; 
         
-        // استخراج أسماء الجداول المطلوبة من الاستعلام باستخدام نمط Regex العام
+        // Extract requested table names from the query using a general Regex pattern
         $tablePattern = '/(?:FROM|JOIN|UPDATE|INTO)\s+[`"\'\s]*([a-zA-Z0-9_]+)/i';
         preg_match_all($tablePattern, $sql, $matches);
         $requestedTables = array_unique(array_map('strtolower', $matches[1] ?? []));
 
-        // حظر الاستعلام فوراً إذا طلب جدول غير مدرج في القائمة البيضاء لهذا الدور
+        // Immediately block the query if it requests a table not listed in this role's whitelist
         foreach ($requestedTables as $table) {
             if (!in_array($table, array_map('strtolower', $allowedTables))) {
                 return response()->json([
                     'type' => 'error',
-                    'reply' => 'عذراً، لا تمتلك الصلاحية للوصول إلى أحد الجداول المطلوبة في هذا الاستعلام.',
+                    'reply' => 'Sorry, you do not have permission to access one of the requested tables in this query.',
                     'message' => "Access to unlisted table ($table) denied for role: $userRole."
                 ], 403);
             }
@@ -114,37 +123,38 @@ class ChatController extends Controller
         $sqlUpper = strtoupper(trim($sql));
 
         // =========================================================================
-        // 🛡️ طبقة الأمان الثانية: التحقق الديناميكي العام من الشروط (لمنع تعديل مستخدمين آخرين)
+        // 🛡️ Second Security Layer: General Dynamic Conditions Check (to prevent modifying other users)
         // =========================================================================
         $allowedQueryConditions = $roleConstraints['allowed_query_conditions'] ?? [];
 
-        if (!empty($allowedQueryConditions) && (str_contains($sqlUpper, 'UPDATE') || str_contains($sqlUpper, 'DELETE'))) {
+        // Apply protection to all queries except INSERT to avoid logical errors in text matching
+        if (!empty($allowedQueryConditions) && !str_starts_with($sqlUpper, 'INSERT')) {
             foreach ($allowedQueryConditions as $targetTable => $conditions) {
                 if (stripos($sql, $targetTable) !== false) {
                     $hasValidCondition = false;
 
-                    // تنظيف نص الاستعلام الحالي تماماً من المسافات والتنصيص للمقارنة العادلة
+                    // Completely clean the current query text from spaces and quotes for a fair comparison
                     $cleanSql = str_replace([' ', "'", '"', '`'], '', $sql);
 
                     foreach ($conditions as $condition) {
-                        // استبدال رمز النائب :identifier بالمعرف الحقيقي الحالي للمستخدم
+                        // Replace the :identifier placeholder with the current user's actual identifier
                         $parsedCondition = str_replace(':identifier', $userIdentifier, $condition);
                         
-                        // تنظيف الشرط المتوقع من المسافات وعلامات التنصيص أيضاً
+                        // Also clean the expected condition from spaces and quotes
                         $cleanCondition = str_replace([' ', "'", '"', '`'], '', $parsedCondition);
 
-                        // إذا وجدنا الشرط الآمن متوفراً داخل نص الاستعلام
+                        // If the safe condition is found within the query text
                         if (stripos($cleanSql, $cleanCondition) !== false) {
                             $hasValidCondition = true;
                             break; 
                         }
                     }
 
-                    // حظر الاختراق فوراً إذا لم يستوفِ الاستعلام أي شرط مسموح في الـ Config للجدول المستهدف
+                    // Immediately block the intrusion if the query does not meet any allowed condition in the Config for the target table
                     if (!$hasValidCondition) {
                         return response()->json([
                             'type' => 'error',
-                            'reply' => 'عذراً، الاستعلام لا يستوفي شروط الأمان المسموحة لدورك الحالي.',
+                            'reply' => 'Sorry, the query does not meet the allowed security conditions for your current role.',
                             'message' => "Query on table ($targetTable) violates allowed_query_conditions for role: $userRole."
                         ], 403);
                     }
@@ -153,12 +163,12 @@ class ChatController extends Controller
         }
 
         // =========================================================================
-        // 🛡️ طبقة الأمان الثالثة: الرفض الصارم للمستخدمين المقيدين ببياناتهم الشخصية فقط (enforce_self_only)
+        // 🛡️ Third Security Layer: Strict Rejection for Users Restricted to Their Own Data Only (enforce_self_only)
         // =========================================================================
         $enforceSelfOnly = $roleConstraints['enforce_self_only'] ?? true;
 
         if ($enforceSelfOnly) {
-            // حظر عمليات الـ UPDATE المشبوهة أو التي لا تضمن تعديل نفس السجل الشخصي (مثل WHERE 1=1)
+            // Block suspicious UPDATE operations or those that do not guarantee modifying the same personal record (e.g., WHERE 1=1)
             if (str_contains($sqlUpper, 'UPDATE')) {
                 $expectedCondition = "{$userIdentifierColumn} = '{$userIdentifier}'";
                 $expectedConditionNoQuotes = "{$userIdentifierColumn} = {$userIdentifier}";
@@ -166,19 +176,19 @@ class ChatController extends Controller
                 if (stripos($sql, $expectedCondition) === false && stripos($sql, $expectedConditionNoQuotes) === false) {
                     return response()->json([
                         'type' => 'error',
-                        'reply' => 'عذراً، لا يمكنك تعديل بيانات مستخدمين آخرين أو إجراء تعديل جماعي.',
+                        'reply' => 'Sorry, you cannot modify other users\' data or perform a mass update.',
                         'message' => 'Unauthorized UPDATE attempt blocked by enforce_self_only guard.'
                     ], 403);
                 }
             } 
-            // حظر استعلامات الـ SELECT التي تحاول سحب بيانات مستخدمين آخرين من الجداول الحساسة كـ users و enrollments
+            // Block SELECT queries that attempt to pull data of other users from sensitive tables like users and enrollments
             elseif (str_contains($sqlUpper, 'SELECT')) {
                 if (stripos($sql, 'users') !== false || stripos($sql, 'enrollments') !== false) {
                     $expectedPattern = "/({$userIdentifierColumn}|student_id)\s*=\s*['\"]?{$userIdentifier}['\"]?/i";
                     if (!preg_match($expectedPattern, $sql)) {
                         return response()->json([
                             'type' => 'error',
-                            'reply' => 'عذراً، لا يمكنك عرض بيانات مستخدمين آخرين.',
+                            'reply' => 'Sorry, you cannot view other users\' data.',
                             'message' => 'Unauthorized data leak protection block by enforce_self_only guard.'
                         ], 403);
                     }
@@ -200,7 +210,7 @@ class ChatController extends Controller
         if (!$isOperationAllowed) {
             return response()->json([
                 'type' => 'error', 
-                'reply' => 'عذراً، دورك الحالي كـ (' . ($roleConfig['name'] ?? $userRole) . ') لا يمتلك الصلاحية لتنفيذ استعلامات من نوع (' . explode(' ', $sqlUpper)[0] . ').',
+                'reply' => 'Sorry, your current role as (' . ($roleConfig['name'] ?? $userRole) . ') does not have permission to execute queries of type (' . explode(' ', $sqlUpper)[0] . ').',
                 'message' => 'Role-based permission denied.'
             ], 403);
         }
@@ -213,16 +223,16 @@ class ChatController extends Controller
                 if (empty($result)) {
                     return response()->json([
                         'type' => 'action', 
-                        'reply' => 'لا توجد بيانات مطابقة لاستعلامك.',
-                        'message' => 'لا توجد بيانات مطابقة لاستعلامك.',
+                        'reply' => 'No data matches your query.',
+                        'message' => 'No data matches your query.',
                         'data' => []
                     ]);
                 }
 
                 return response()->json([
                     'type' => 'report', 
-                    'reply' => 'إليك البيانات المطلوبة:',
-                    'message' => 'تم جلب البيانات.', 
+                    'reply' => 'Here is the requested data:',
+                    'message' => 'Data fetched successfully.', 
                     'data' => $result
                 ]);
             } else {
@@ -234,29 +244,24 @@ class ChatController extends Controller
                 if ($affectedRows === 0) {
                     return response()->json([
                         'type' => 'error', 
-                        'reply' => 'لم يتم تحديث أي سجل. قد تكون البيانات مطابقة أو لا توجد صلاحية.',
-                        'message' => 'لم يتم تحديث أي سجل.'
+                        'reply' => 'No records were updated. The data might be identical or you lack permission.',
+                        'message' => 'No records were updated.'
                     ], 404);
                 }
 
                 return response()->json([
                     'type' => 'action', 
-                    'reply' => 'تم تنفيذ العملية بنجاح.',
-                    'message' => 'تم التحديث بنجاح.'
+                    'reply' => 'Operation executed successfully.',
+                    'message' => 'Updated successfully.'
                 ]);
             }
         } catch (\Exception $e) {
             Log::error("SQL Failure: " . $e->getMessage() . " | SQL: " . $sql);
             return response()->json([
                 'type' => 'error', 
-                'reply' => 'حدث خطأ في قاعدة البيانات أثناء محاولة التنفيذ.',
+                'reply' => 'A database error occurred while attempting execution.',
                 'message' => $e->getMessage()
             ], 500);
         }
     }
-
-
-  
 }
-
-

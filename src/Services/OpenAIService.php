@@ -18,15 +18,8 @@ class OpenAIService
         $this->apiKey = config('operation-gpt.openai_api_key');
         $this->model = config('operation-gpt.model', 'gpt-4o');
 
-        // Auto-detect OpenRouter key or use configured custom base
-        $apiBase = config('operation-gpt.openai_api_base');
-        if (!$apiBase) {
-            if (str_starts_with($this->apiKey, 'sk-or-')) {
-                $apiBase = 'https://openrouter.ai/api/v1/';
-            } else {
-                $apiBase = 'https://api.openai.com/v1/';
-            }
-        }
+        // Use configured custom base or default to OpenAI
+        $apiBase = config('operation-gpt.openai_api_base', 'https://api.openai.com/v1/');
 
         $this->client = new Client([
             'base_uri' => $apiBase,

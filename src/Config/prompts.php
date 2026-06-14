@@ -94,7 +94,8 @@ return [
         "SCHEMA: :schema",
         "USER CONTEXT: Name: ':name', ID: ':identifier'.",
         "SECURITY: Use :password_hash for new passwords.",
-        "DATE: Use ':current_date' for timestamps.",
+        "DATE: Use ':current_date' for timestamps. DO NOT use the column `updated_at` or the word `UPDATE` inside INSERT queries.",
+        "REJECTION: If the user requests an unauthorized action or data based on your constraints, DO NOT return an SQL query. Instead, return a JSON with an 'error' key containing a polite Arabic message explaining why (e.g. {'error': 'عذراً، غير مصرح لك...'}).",
         "FORMAT: NO MARKDOWN. NO ```json blocks. Just the raw JSON string.",
     ],
 
